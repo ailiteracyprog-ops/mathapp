@@ -1,0 +1,274 @@
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { RefreshCw, ArrowUp, ArrowDown, Sparkles } from 'lucide-react';
+
+function FractionApp() {
+  const [numerator, setNumerator] = useState(3);
+  const [denominator, setDenominator] = useState(4);
+  const [inputNum, setInputNum] = useState('3');
+  const [inputDen, setInputDen] = useState('4');
+  const [history, setHistory] = useState([{ num: 3, den: 4, action: '初始分數' }]);
+  const [message, setMessage] = useState('');
+  const [animationKey, setAnimationKey] = useState(0);
+
+  const gcd = (a, b) => {
+    a = Math.abs(a);
+    b = Math.abs(b);
+    while (b) {
+      [a, b] = [b, a % b];
+    }
+    return a;
+  };
+
+  const handleInputChange = () => {
+    const num = parseInt(inputNum);
+    const den = parseInt(inputDen);
+    if (isNaN(num) || isNaN(den) || den === 0) {
+      setMessage('請輸入有效的分數（分母不能為0）');
+      return;
+    }
+    setNumerator(num);
+    setDenominator(den);
+    setHistory([{ num, den, action: '輸入新分數' }]);
+    setMessage('');
+    setAnimationKey(prev => prev + 1);
+  };
+
+  const expand = (factor) => {
+    const newNum = numerator * factor;
+    const newDen = denominator * factor;
+    setNumerator(newNum);
+    setDenominator(newDen);
+    setHistory(prev => [...prev, { num: newNum, den: newDen, action: `×${factor} 擴分` }]);
+    setMessage(`分子和分母都乘以 ${factor}`);
+    setAnimationKey(prev => prev + 1);
+  };
+
+  const reduce = (factor) => {
+    if (numerator % factor !== 0 || denominator % factor !== 0) {
+      setMessage(`無法除以 ${factor}，分子或分母不能整除`);
+      return;
+    }
+    const newNum = numerator / factor;
+    const newDen = denominator / factor;
+    setNumerator(newNum);
+    setDenominator(newDen);
+    setHistory(prev => [...prev, { num: newNum, den: newDen, action: `÷${factor} 約分` }]);
+    setMessage(`分子和分母都除以 ${factor}`);
+    setAnimationKey(prev => prev + 1);
+  };
+
+  const simplify = () => {
+    const divisor = gcd(numerator, denominator);
+    if (divisor === 1) {
+      setMessage('這個分數已經是最簡分數了！');
+      return;
+    }
+    const newNum = numerator / divisor;
+    const newDen = denominator / divisor;
+    setNumerator(newNum);
+    setDenominator(newDen);
+    setHistory(prev => [...prev, { num: newNum, den: newDen, action: `÷${divisor} 最簡分數` }]);
+    setMessage(`除以最大公因數 ${divisor}，得到最簡分數`);
+    setAnimationKey(prev => prev + 1);
+  };
+
+  const canReduce = (factor) => {
+    return numerator % factor === 0 && denominator % factor === 0;
+  };
+
+  const isSimplest = gcd(numerator, denominator) === 1;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-4">
+      <div className="max-w-2xl mx-auto">
+        <h1 className="text-2xl font-bold text-center text-purple-800 mb-2">
+          📐 通分母學習工具
+        </h1>
+        <p className="text-center text-gray-600 mb-6 text-sm">
+          學習擴分和約分，掌握分數的基本操作
+        </p>
+
+        {/* Input Section */}
+        <div className="bg-white rounded-2xl shadow-lg p-4 mb-4">
+          <h2 className="text-lg font-semibold text-gray-700 mb-3 flex items-center gap-2">
+            <span>✏️</span> 輸入分數
+          </h2>
+          <div className="flex items-center justify-center gap-3">
+            <input
+              type="number"
+              value={inputNum}
+              onChange={(e) => setInputNum(e.target.value)}
+              className="w-20 h-12 text-center text-xl font-bold border-2 border-purple-300 rounded-lg focus:border-purple-500 focus:outline-none"
+              placeholder="分子"
+            />
+            <span className="text-3xl font-bold text-gray-400">/</span>
+            <input
+              type="number"
+              value={inputDen}
+              onChange={(e) => setInputDen(e.target.value)}
+              className="w-20 h-12 text-center text-xl font-bold border-2 border-purple-300 rounded-lg focus:border-purple-500 focus:outline-none"
+              placeholder="分母"
+            />
+            <button
+              onClick={handleInputChange}
+              className="bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-purple-700 transition-colors flex items-center gap-1"
+            >
+              <RefreshCw size={16} />
+              設定
+            </button>
+          </div>
+        </div>
+
+        {/* Current Fraction Display */}
+        <div className="bg-white rounded-2xl shadow-lg p-6 mb-4">
+          <h2 className="text-lg font-semibold text-gray-700 mb-4 text-center">目前分數</h2>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={animationKey}
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 20 }}
+              className="flex flex-col items-center"
+            >
+              <div className="relative">
+                <div className="text-5xl font-bold text-purple-700 text-center px-8 py-2">
+                  {numerator}
+                </div>
+                <div className="w-24 h-1 bg-purple-700 mx-auto rounded-full"></div>
+                <div className="text-5xl font-bold text-purple-700 text-center px-8 py-2">
+                  {denominator}
+                </div>
+              </div>
+              {isSimplest && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-3 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium flex items-center gap-1"
+                >
+                  <Sparkles size={14} />
+                  最簡分數
+                </motion.div>
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        {/* Message Display */}
+        {message && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-blue-100 text-blue-800 rounded-xl p-3 mb-4 text-center font-medium"
+          >
+            💡 {message}
+          </motion.div>
+        )}
+
+        {/* Expand Section */}
+        <div className="bg-white rounded-2xl shadow-lg p-4 mb-4">
+          <h2 className="text-lg font-semibold text-gray-700 mb-3 flex items-center gap-2">
+            <ArrowUp className="text-green-600" size={20} />
+            擴分（乘以相同的數）
+          </h2>
+          <div className="flex flex-wrap gap-2 justify-center">
+            {[2, 3, 4, 5].map((factor) => (
+              <button
+                key={`expand-${factor}`}
+                onClick={() => expand(factor)}
+                className="bg-green-500 text-white px-5 py-2 rounded-xl font-bold text-lg hover:bg-green-600 transition-colors shadow-md hover:shadow-lg"
+              >
+                ×{factor}
+              </button>
+            ))}
+          </div>
+          <p className="text-gray-500 text-sm mt-3 text-center">
+            擴分：分子和分母同時乘以相同的數，分數值不變
+          </p>
+        </div>
+
+        {/* Reduce Section */}
+        <div className="bg-white rounded-2xl shadow-lg p-4 mb-4">
+          <h2 className="text-lg font-semibold text-gray-700 mb-3 flex items-center gap-2">
+            <ArrowDown className="text-orange-600" size={20} />
+            約分（除以相同的數）
+          </h2>
+          <div className="flex flex-wrap gap-2 justify-center">
+            {[2, 3, 4, 5].map((factor) => (
+              <button
+                key={`reduce-${factor}`}
+                onClick={() => reduce(factor)}
+                disabled={!canReduce(factor)}
+                className={`px-5 py-2 rounded-xl font-bold text-lg transition-colors shadow-md ${
+                  canReduce(factor)
+                    ? 'bg-orange-500 text-white hover:bg-orange-600 hover:shadow-lg'
+                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                ÷{factor}
+              </button>
+            ))}
+          </div>
+          <p className="text-gray-500 text-sm mt-3 text-center">
+            約分：只有當分子和分母都能整除時才能約分
+          </p>
+        </div>
+
+        {/* Simplify Button */}
+        <div className="bg-white rounded-2xl shadow-lg p-4 mb-4">
+          <button
+            onClick={simplify}
+            disabled={isSimplest}
+            className={`w-full py-3 rounded-xl font-bold text-lg transition-colors flex items-center justify-center gap-2 ${
+              isSimplest
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 shadow-md hover:shadow-lg'
+            }`}
+          >
+            <Sparkles size={20} />
+            化為最簡分數
+          </button>
+        </div>
+
+        {/* History Section */}
+        <div className="bg-white rounded-2xl shadow-lg p-4">
+          <h2 className="text-lg font-semibold text-gray-700 mb-3">📝 操作記錄</h2>
+          <div className="max-h-48 overflow-y-auto">
+            <div className="flex flex-wrap gap-2">
+              {history.map((item, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="bg-gray-100 rounded-lg px-3 py-2 flex items-center gap-2"
+                >
+                  <span className="font-bold text-purple-700">
+                    {item.num}/{item.den}
+                  </span>
+                  <span className="text-xs text-gray-500">{item.action}</span>
+                  {index < history.length - 1 && (
+                    <span className="text-gray-400">→</span>
+                  )}
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Educational Tips */}
+        <div className="mt-4 bg-yellow-50 rounded-2xl p-4 border-2 border-yellow-200">
+          <h3 className="font-bold text-yellow-800 mb-2">💡 學習小提示</h3>
+          <ul className="text-sm text-yellow-700 space-y-1">
+            <li>• <strong>通分母</strong>：讓不同分數有相同的分母，方便比較和計算</li>
+            <li>• <strong>擴分</strong>：分子分母同乘一個數，分數值不變</li>
+            <li>• <strong>約分</strong>：分子分母同除一個公因數，簡化分數</li>
+            <li>• <strong>最簡分數</strong>：分子分母的最大公因數為1</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default FractionApp;
