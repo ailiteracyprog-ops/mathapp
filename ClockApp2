@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clock Time Difference</title>
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: #F4F1EC;
+            color: #1B1B1F;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 800;
+        }
+        .app {
+            max-width: 440px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 18px;
+        }
+        .panel {
+            background: #FFFFFF;
+            border-radius: 18px;
+            padding: 20px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .time-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .time-fields {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex: 1;
+        }
+        .time-fields input {
+            width: 50px;
+            padding: 8px;
+            border-radius: 10px;
+            text-align: center;
+            border: 2px solid #DBD7CF;
+        }
+        .result-strip {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            border: 1px solid #DBD7CF;
+            border-radius: 12px;
+            padding: 14px;
+        }
+        .explain {
+            background: #FFFFFF;
+            border-radius: 16px;
+            padding: 18px;
+            width: 100%;
+            font-size: 0.86rem;
+            color: #555360;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Time Difference Calculator</h1>
+    <p>Drag the hands or type below</p>
+</div>
+
+<div class="app">
+    <div class="panel">
+        <div class="time-row">
+            <span>Start</span>
+            <div class="time-fields">
+                <input type="number" id="sH" min="1" max="12" value="9" aria-label="Start hour">
+                <span>:</span>
+                <input type="number" id="sM" min="0" max="59" value="15" aria-label="Start minutes">
+            </div>
+        </div>
+        <div class="time-row">
+            <span>End</span>
+            <div class="time-fields">
+                <input type="number" id="eH" min="1" max="12" value="2" aria-label="End hour">
+                <span>:</span>
+                <input type="number" id="eM" min="0" max="59" value="45" aria-label="End minutes">
+            </div>
+        </div>
+        <div class="result-strip">
+            <span id="resTxt">5h 30m</span>
+            <span id="resSub">(330 min)</span>
+        </div>
+    </div>
+
+    <div class="explain" id="explain">
+        <div class="title">Step-by-Step</div>
+        <div>Start at 9:15 AM.</div>
+        <div>Count forward 5 hours → 2:15 PM</div>
+        <div>Count forward 30 minutes → 2:45 PM.</div>
+        <div>Difference = 5 hr 30 min (330 minutes total)</div>
+    </div>
+</div>
+
+<script>
+    // JavaScript functionality can be added here for interaction
+</script>
+
+</body>
+</html>
