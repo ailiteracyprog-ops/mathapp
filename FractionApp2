@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fraction App</title>
+    <style>
+        body {
+            min-height: 100vh;
+            background: linear-gradient(to bottom right, #ebf8ff, #e9d8fd);
+            padding: 16px;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+        h1, h2 {
+            text-align: center;
+            color: #6b46c1;
+        }
+        input[type="number"] {
+            width: 50px;
+            text-align: center;
+            font-size: 24px;
+            margin: 0 10px;
+            border: 2px solid #6b46c1;
+            border-radius: 8px;
+            padding: 5px;
+        }
+        button {
+            background-color: #6b46c1;
+            color: white;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #5a36b0;
+        }
+        .fraction {
+            font-size: 40px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .history, .tips {
+            margin-top: 20px;
+            border: 1px solid #e2e8f0;
+            padding: 10px;
+            border-radius: 8px;
+            background-color: #f7fafc;
+        }
+        .tip-item {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>📐 通分母學習工具</h1>
+    <p>學習擴分和約分，掌握分數的基本操作</p>
+
+    <!-- Input Section -->
+    <h2>✏️ 輸入分數</h2>
+    <input type="number" id="inputNum" placeholder="分子" value="3">
+    <span>/</span>
+    <input type="number" id="inputDen" placeholder="分母" value="4">
+    <button onclick="setFraction()">設定</button>
+
+    <!-- Current Fraction Display -->
+    <div class="fraction" id="currentFraction">3/4</div>
+
+    <!-- Message Display -->
+    <div id="message" style="color: blue;"></div>
+
+    <!-- Expand Section -->
+    <h2>擴分（乘以相同的數）</h2>
+    <button onclick="expand(2)">×2</button>
+    <button onclick="expand(3)">×3</button>
+    <button onclick="expand(4)">×4</button>
+    <button onclick="expand(5)">×5</button>
+
+    <!-- Reduce Section -->
+    <h2>約分（除以相同的數）</h2>
+    <button onclick="reduce(2)">÷2</button>
+    <button onclick="reduce(3)">÷3</button>
+    <button onclick="reduce(4)">÷4</button>
+    <button onclick="reduce(5)">÷5</button>
+
+    <!-- History Section -->
+    <div class="history">
+        <h2>📝 操作記錄</h2>
+        <div id="history"></div>
+    </div>
+
+    <!-- Educational Tips -->
+    <div class="tips">
+        <h2>💡 學習小提示</h2>
+        <div class="tip-item">• 通分母：讓不同分數有相同的分母，方便比較和計算</div>
+        <div class="tip-item">• 擴分：分子分母同乘一個數，分數值不變</div>
+        <div class="tip-item">• 約分：分子分母同除一個公因數，簡化分數</div>
+        <div class="tip-item">• 最簡分數：分子分母的最大公因數為1</div>
+    </div>
+</div>
+
+<script>
+    let numerator = 3;
+    let denominator = 4;
+    const history = [];
+
+    function updateFractionDisplay() {
+        document.getElementById('currentFraction').innerText = `${numerator}/${denominator}`;
+    }
+
+    function setFraction() {
+        const inputNum = parseInt(document.getElementById('inputNum').value);
+        const inputDen = parseInt(document.getElementById('inputDen').value);
+        if (isNaN(inputNum) || isNaN(inputDen) || inputDen === 0) {
+            document.getElementById('message').innerText = '請輸入有效的分數（分母不能為0）';
+            return;
+        }
+        numerator = inputNum;
+        denominator = inputDen;
+        history.push({ num: numerator, den: denominator, action: '輸入新分數' });
+        updateHistory();
+        updateFractionDisplay();
+        document.getElementById('message').innerText = '';
+    }
+
+    function expand(factor) {
+        numerator *= factor;
+        denominator *= factor;
+        history.push({ num: numerator, den: denominator, action: `×${factor} 擴分` });
+        updateHistory();
+        updateFractionDisplay();
+        document.getElementById('message').innerText = `分子和分母都乘以 ${factor}`;
+    }
+
+    function reduce(factor) {
+        if (numerator % factor !== 0 || denominator % factor !== 0) {
+            document.getElementById('message').innerText = `無法除以 ${factor}，分子或分母不能整除`;
+            return;
+        }
+        numerator /= factor;
+        denominator /= factor;
+        history.push({ num: numerator, den: denominator, action: `÷${factor} 約分` });
+        updateHistory();
+        updateFractionDisplay();
+        document.getElementById('message').innerText = `分子和分母都除以 ${factor}`;
+    }
+
+    function updateHistory() {
+        const historyDiv = document.getElementById('history');
+        historyDiv.innerHTML = ''; // Clear previous history
+        history.forEach(item => {
+            historyDiv.innerHTML += `<div>${item.num}/${item.den} → ${item.action}</div>`;
+        });
+    }
+</script>
+
+</body>
+</html>
