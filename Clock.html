@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clock Time Difference</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F4F1EC;
+    --card: #FFFFFF;
+    --text: #1B1B1F;
+    --text-mid: #555360;
+    --text-dim: #8E8B96;
+    --clock-face: #FFFDF9;
+    --clock-rim: #1B1B1F;
+    --clock-inner-rim: #D4CFC6;
+    --tick-major: #1B1B1F;
+    --tick-minor: #C5C0B8;
+    --num-color: #1B1B1F;
+    --start-color: #E8453C;
+    --start-glow: rgba(232,69,60,0.18);
+    --end-color: #2BA88C;
+    --end-glow: rgba(43,168,140,0.18);
+    --arc-fill: rgba(255,183,77,0.20);
+    --arc-stroke: #FFB74D;
+    --diff-color: #E8913C;
+    --shadow-soft: 0 6px 40px rgba(27,27,31,0.08);
+    --input-bg: #F0ECE6;
+    --input-border: #DBD7CF;
+    --input-focus: #E8913C;
+    --badge-bg: #F7F4EF;
+    --toggle-track: #DBD7CF;
+    --toggle-active: #E8913C;
+    --toggle-knob: #FFFFFF;
+    --ampm-off: #F0ECE6;
+    --ampm-off-text: #8E8B96;
+  }
+  html.dark {
+    --bg: #121118;
+    --card: #1D1B26;
+    --text: #EEEAF5;
+    --text-mid: #A09BAD;
+    --text-dim: #6D687A;
+    --clock-face: #1D1B26;
+    --clock-rim: #EEEAF5;
+    --clock-inner-rim: #33303F;
+    --tick-major: #EEEAF5;
+    --tick-minor: #3D3A49;
+    --num-color: #EEEAF5;
+    --start-glow: rgba(232,69,60,0.25);
+    --end-glow: rgba(43,168,140,0.25);
+    --arc-fill: rgba(255,183,77,0.14);
+    --shadow-soft: 0 6px 40px rgba(0,0,0,0.25);
+    --input-bg: #16141E;
+    --input-border: #2E2B39;
+    --badge-bg: #1D1B26;
+    --toggle-track: #2E2B39;
+    --toggle-active: #E8913C;
+    --ampm-off: #2E2B39;
+    --ampm-off-text: #6D687A;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: 'Outfit', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 48px;
+    transition: background 0.35s, color 0.35s;
+  }
+
+  .header { text-align: center; margin-bottom: 24px; animation: fadeDown 0.5s ease-out both; }
+  .header h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 2px; }
+  .header p { color: var(--text-dim); font-size: 0.88rem; }
+
+  .app {
+    width: 100%; max-width: 440px;
+    display: flex; flex-direction: column; align-items: center; gap: 18px;
+  }
+
+  /* Clock */
+  .clock-wrap {
+    position: relative; width: min(360px, 88vw); height: min(360px, 88vw);
+    animation: scaleIn 0.6s ease-out 0.1s both;
+  }
+  .clock-svg { width: 100%; height: 100%; filter: drop-shadow(0 8px 30px rgba(27,27,31,0.10)); }
+  html.dark .clock-svg { filter: drop-shadow(0 8px 30px rgba(0,0,0,0.35)); }
+
+  .drag-tip {
+    text-align: center; font-size: 0.78rem; color: var(--text-dim);
+    animation: fadeDown 0.5s ease-out 0.3s both;
+  }
+
+  /* Panel */
+  .panel {
+    background: var(--card); border-radius: 18px; padding: 20px;
+    box-shadow: var(--shadow-soft); width: 100%;
+    display: flex; flex-direction: column; gap: 14px;
+    animation: fadeUp 0.5s ease-out 0.25s both;
+  }
+
+  /* Time rows */
+  .time-row { display: flex; align-items: center; gap: 10px; }
+  .time-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: 8px; font-weight: 600; font-size: 0.82rem;
+    min-width: 74px; justify-content: center;
+  }
+  .time-badge.start { background: var(--start-glow); color: var(--start-color); }
+  .time-badge.end { background: var(--end-glow); color: var(--end-color); }
+  .time-badge .badge-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .time-badge.start .badge-dot { background: var(--start-color); }
+  .time-badge.end .badge-dot { background: var(--end-color); }
+
+  .time-fields { display: flex; align-items: center; gap: 4px; flex: 1; }
+  .time-fields input {
+    font-family: 'DM Mono', monospace; font-size: 1.05rem; font-weight: 500;
+    background: var(--input-bg); color: var(--text);
+    border: 2px solid var(--input-border); border-radius: 10px;
+    padding: 8px 6px; text-align: center; outline: none;
+    transition: border-color 0.2s;
+    width: 50px; -moz-appearance: textfield;
+  }
+  .time-fields input:focus { border-color: var(--input-focus); }
+  .time-fields input::-webkit-inner-spin-button,
+  .time-fields input::-webkit-outer-spin-button { -webkit-appearance: none; }
+  .time-fields .sep {
+    font-family: 'DM Mono', monospace; font-weight: 700; font-size: 1.2rem;
+    color: var(--text-dim); padding: 0 1px;
+  }
+
+  /* +/- minute steppers */
+  .min-steppers {
+    display: flex; flex-direction: column; gap: 2px; flex-shrink: 0;
+  }
+  .min-steppers button {
+    width: 26px; height: 18px; border: none; border-radius: 6px;
+    background: var(--input-bg); color: var(--text-mid);
+    font-size: 0.72rem; font-weight: 700; line-height: 1;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, color 0.15s;
+    border: 1.5px solid var(--input-border);
+    font-family: 'DM Mono', monospace;
+  }
+  .min-steppers button:hover {
+    background: var(--input-focus); color: #fff; border-color: var(--input-focus);
+  }
+  .min-steppers button:active {
+    transform: scale(0.92);
+  }
+
+  /* AM/PM toggle buttons */
+  .ampm-toggle {
+    display: flex; border-radius: 9px; overflow: hidden;
+    border: 2px solid var(--input-border); flex-shrink: 0;
+  }
+  .ampm-toggle button {
+    font-family: 'DM Mono', monospace; font-size: 0.82rem; font-weight: 500;
+    padding: 7px 10px; border: none; cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    background: var(--ampm-off); color: var(--ampm-off-text);
+    line-height: 1;
+  }
+  .ampm-toggle button.active-am {
+    background: var(--diff-color); color: #fff;
+  }
+  .ampm-toggle button.active-pm {
+    background: #7C6AE8; color: #fff;
+  }
+
+  /* Result */
+  .result-strip {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    background: var(--badge-bg); border-radius: 12px; padding: 14px 18px;
+    border: 1.5px solid var(--input-border);
+  }
+  .result-icon { font-size: 1.4rem; }
+  .result-main { font-family: 'DM Mono', monospace; font-size: 1.2rem; font-weight: 500; color: var(--diff-color); }
+  .result-detail { font-size: 0.82rem; color: var(--text-dim); }
+
+  /* Settings row */
+  .settings-row {
+    display: flex; align-items: center; justify-content: center; gap: 20px;
+    flex-wrap: wrap;
+  }
+  .setting-item {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.82rem; font-weight: 500; color: var(--text-mid);
+    cursor: pointer; user-select: none;
+  }
+  .toggle-track {
+    width: 38px; height: 22px; border-radius: 11px;
+    background: var(--toggle-track); position: relative;
+    transition: background 0.25s; flex-shrink: 0;
+  }
+  .toggle-track.on { background: var(--toggle-active); }
+  .toggle-knob {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--toggle-knob);
+    position: absolute; top: 3px; left: 3px;
+    transition: transform 0.25s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+  }
+  .toggle-track.on .toggle-knob { transform: translateX(16px); }
+
+  /* Explanation */
+  .explain {
+    background: var(--card); border-radius: 16px; padding: 18px 20px;
+    box-shadow: var(--shadow-soft); width: 100%;
+    font-size: 0.86rem; color: var(--text-mid); line-height: 1.7;
+    animation: fadeUp 0.5s ease-out 0.35s both;
+  }
+  .explain .title { font-weight: 700; font-size: 0.9rem; color: var(--text); margin-bottom: 10px; }
+  .step-row { display: flex; gap: 8px; margin-bottom: 7px; align-items: flex-start; }
+  .step-pill {
+    background: var(--diff-color); color: #fff; font-weight: 700; font-size: 0.68rem;
+    min-width: 22px; height: 22px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .step-pill.done { background: var(--end-color); font-size: 0.72rem; }
+  .step-row strong { color: var(--text); }
+
+  @keyframes fadeDown { from { opacity:0; transform:translateY(-12px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes scaleIn { from { opacity:0; transform:scale(0.92); } to { opacity:1; transform:scale(1); } }
+
+  @media (max-width: 380px) {
+    .header h1 { font-size: 1.25rem; }
+    .time-badge { min-width: 62px; font-size: 0.76rem; padding: 3px 7px; }
+    .time-fields input { width: 44px; padding: 7px 4px; font-size: 0.95rem; }
+    .ampm-toggle button { padding: 6px 7px; font-size: 0.76rem; }
+    .min-steppers button { width: 22px; height: 16px; font-size: 0.65rem; }
+    .settings-row { gap: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Time Difference Calculator</h1>
+  <p>Drag the hands or type below</p>
+</div>
+
+<div class="app">
+  <div class="clock-wrap">
+    <svg class="clock-svg" id="clock" viewBox="0 0 400 400"></svg>
+  </div>
+  <p class="drag-tip">↕ Drag the large circles for hours, small circles for minutes</p>
+
+  <!-- Show/hide clock toggles -->
+  <div class="settings-row">
+    <label class="setting-item" id="toggleStartLabel">
+      <div class="toggle-track on" id="toggleStart"><div class="toggle-knob"></div></div>
+      <span style="color:var(--start-color)">Start clock</span>
+    </label>
+    <label class="setting-item" id="toggleEndLabel">
+      <div class="toggle-track on" id="toggleEnd"><div class="toggle-knob"></div></div>
+      <span style="color:var(--end-color)">End clock</span>
+    </label>
+  </div>
+
+  <div class="panel">
+    <div class="time-row">
+      <span class="time-badge start"><span class="badge-dot"></span>Start</span>
+      <div class="time-fields">
+        <input type="number" id="sH" min="1" max="12" value="9" aria-label="Start hour">
+        <span class="sep">:</span>
+        <input type="number" id="sM" min="0" max="59" value="15" aria-label="Start minutes">
+        <div class="min-steppers">
+          <button type="button" data-target="sM" data-dir="1" aria-label="Start minute plus 1">+</button>
+          <button type="button" data-target="sM" data-dir="-1" aria-label="Start minute minus 1">−</button>
+        </div>
+        <div class="ampm-toggle" id="sAmpmToggle">
+          <button type="button" class="active-am" data-val="AM">AM</button>
+          <button type="button" data-val="PM">PM</button>
+        </div>
+      </div>
+    </div>
+    <div class="time-row">
+      <span class="time-badge end"><span class="badge-dot"></span>End</span>
+      <div class="time-fields">
+        <input type="number" id="eH" min="1" max="12" value="2" aria-label="End hour">
+        <span class="sep">:</span>
+        <input type="number" id="eM" min="0" max="59" value="45" aria-label="End minutes">
+        <div class="min-steppers">
+          <button type="button" data-target="eM" data-dir="1" aria-label="End minute plus 1">+</button>
+          <button type="button" data-target="eM" data-dir="-1" aria-label="End minute minus 1">−</button>
+        </div>
+        <div class="ampm-toggle" id="eAmpmToggle">
+          <button type="button" data-val="AM">AM</button>
+          <button type="button" class="active-pm" data-val="PM">PM</button>
+        </div>
+      </div>
+    </div>
+    <div class="result-strip">
+      <span class="result-icon">⏱</span>
+      <span class="result-main" id="resTxt">5h 30m</span>
+      <span class="result-detail" id="resSub">(330 min)</span>
+    </div>
+  </div>
+
+  <div class="explain" id="explain"></div>
+</div>
+
+<script>
+/* Dark mode */
+if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+  document.documentElement.classList.add('dark');
+}
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+  document.documentElement.classList.toggle('dark', e.matches);
+});
+
+/* Constants */
+const NS = "http://www.w3.org/2000/svg";
+const CX = 200, CY = 200, FACE_R = 168;
+const svgEl = document.getElementById('clock');
+
+/* State */
+let showStart = true;
+let showEnd = true;
+
+/* Helpers */
+function rad(d) { return d * Math.PI / 180; }
+function gx(cx, r, a) { return cx + r * Math.cos(rad(a - 90)); }
+function gy(cy, r, a) { return cy + r * Math.sin(rad(a - 90)); }
+function mk(tag, attrs) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+function pad(n) { return String(n).padStart(2, '0'); }
+
+/* Build clock face */
+function buildFace() {
+  const defs = mk('defs', {});
+  const grad = mk('radialGradient', { id: 'rimGrad', cx: '50%', cy: '45%', r: '55%' });
+  grad.appendChild(mk('stop', { offset: '0%', 'stop-color': 'var(--clock-face)' }));
+  grad.appendChild(mk('stop', { offset: '100%', 'stop-color': 'var(--clock-inner-rim)' }));
+  defs.appendChild(grad);
+  svgEl.appendChild(defs);
+
+  svgEl.appendChild(mk('circle', { cx: CX, cy: CY, r: FACE_R + 16, fill: 'var(--clock-rim)' }));
+  svgEl.appendChild(mk('circle', { cx: CX, cy: CY, r: FACE_R + 10, fill: 'var(--clock-inner-rim)' }));
+  svgEl.appendChild(mk('circle', { cx: CX, cy: CY, r: FACE_R, fill: 'url(#rimGrad)' }));
+
+  for (let i = 0; i < 60; i++) {
+    const major = i % 5 === 0;
+    const ang = i * 6;
+    svgEl.appendChild(mk('line', {
+      x1: gx(CX, FACE_R - (major ? 20 : 10), ang), y1: gy(CY, FACE_R - (major ? 20 : 10), ang),
+      x2: gx(CX, FACE_R - 2, ang), y2: gy(CY, FACE_R - 2, ang),
+      stroke: major ? 'var(--tick-major)' : 'var(--tick-minor)',
+      'stroke-width': major ? 3.2 : 1.3, 'stroke-linecap': 'round'
+    }));
+  }
+
+  for (let i = 1; i <= 12; i++) {
+    const ang = i * 30, nr = FACE_R - 38;
+    const t = mk('text', {
+      x: gx(CX, nr, ang), y: gy(CY, nr, ang) + 6,
+      'text-anchor': 'middle', fill: 'var(--num-color)',
+      'font-family': "'Outfit', sans-serif", 'font-size': '22', 'font-weight': '700'
+    });
+    t.textContent = i;
+    svgEl.appendChild(t);
+  }
+}
+
+/* Dynamic SVG elements */
+let arcPath, sHourLine, sMinLine, sGrip, sMinGrip, eHourLine, eMinLine, eGrip, eMinGrip, centerDot;
+const HOUR_R = 88, MIN_R = 122, GRIP_R = 13, MIN_GRIP_R = 9;
+
+function buildDynamic() {
+  arcPath = mk('path', { fill: 'var(--arc-fill)', stroke: 'var(--arc-stroke)', 'stroke-width': 2.2, 'stroke-dasharray': '6 4', opacity: '0.8' });
+  svgEl.appendChild(arcPath);
+
+  sMinLine = mk('line', { stroke: 'var(--start-color)', 'stroke-width': 3, 'stroke-linecap': 'round', opacity: '0.55' });
+  svgEl.appendChild(sMinLine);
+  eMinLine = mk('line', { stroke: 'var(--end-color)', 'stroke-width': 3, 'stroke-linecap': 'round', opacity: '0.55' });
+  svgEl.appendChild(eMinLine);
+
+  sHourLine = mk('line', { stroke: 'var(--start-color)', 'stroke-width': 6, 'stroke-linecap': 'round' });
+  svgEl.appendChild(sHourLine);
+  eHourLine = mk('line', { stroke: 'var(--end-color)', 'stroke-width': 6, 'stroke-linecap': 'round' });
+  svgEl.appendChild(eHourLine);
+
+  centerDot = mk('circle', { cx: CX, cy: CY, r: 7, fill: 'var(--clock-rim)' });
+  svgEl.appendChild(centerDot);
+
+  sGrip = mk('circle', { r: GRIP_R, fill: 'var(--start-color)', stroke: '#fff', 'stroke-width': 3, style: 'cursor:grab; filter: drop-shadow(0 2px 6px rgba(232,69,60,0.35));' });
+  svgEl.appendChild(sGrip);
+  eGrip = mk('circle', { r: GRIP_R, fill: 'var(--end-color)', stroke: '#fff', 'stroke-width': 3, style: 'cursor:grab; filter: drop-shadow(0 2px 6px rgba(43,168,140,0.35));' });
+  svgEl.appendChild(eGrip);
+
+  sMinGrip = mk('circle', { r: MIN_GRIP_R, fill: 'var(--start-color)', stroke: '#fff', 'stroke-width': 2, opacity: '0.75', style: 'cursor:grab; filter: drop-shadow(0 1px 4px rgba(232,69,60,0.30));' });
+  svgEl.appendChild(sMinGrip);
+  eMinGrip = mk('circle', { r: MIN_GRIP_R, fill: 'var(--end-color)', stroke: '#fff', 'stroke-width': 2, opacity: '0.75', style: 'cursor:grab; filter: drop-shadow(0 1px 4px rgba(43,168,140,0.30));' });
+  svgEl.appendChild(eMinGrip);
+}
+
+/* AM/PM toggle logic */
+const sAmpmToggle = document.getElementById('sAmpmToggle');
+const eAmpmToggle = document.getElementById('eAmpmToggle');
+
+function getAmpm(toggleEl) {
+  const active = toggleEl.querySelector('.active-am, .active-pm');
+  return active ? active.dataset.val : 'AM';
+}
+
+function setAmpm(toggleEl, val) {
+  toggleEl.querySelectorAll('button').forEach(function(btn) {
+    btn.classList.remove('active-am', 'active-pm');
+    if (btn.dataset.val === val) {
+      btn.classList.add(val === 'AM' ? 'active-am' : 'active-pm');
+    }
+  });
+}
+
+sAmpmToggle.addEventListener('click', function(e) {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  setAmpm(sAmpmToggle, btn.dataset.val);
+  update();
+});
+eAmpmToggle.addEventListener('click', function(e) {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  setAmpm(eAmpmToggle, btn.dataset.val);
+  update();
+});
+
+/* Toggle switches */
+const toggleStartEl = document.getElementById('toggleStart');
+const toggleEndEl = document.getElementById('toggleEnd');
+
+toggleStartEl.parentElement.addEventListener('click', function() {
+  showStart = !showStart;
+  toggleStartEl.classList.toggle('on', showStart);
+  update();
+});
+toggleEndEl.parentElement.addEventListener('click', function() {
+  showEnd = !showEnd;
+  toggleEndEl.classList.toggle('on', showEnd);
+  update();
+});
+
+/* Inputs */
+const sH = document.getElementById('sH');
+const sM = document.getElementById('sM');
+const eH = document.getElementById('eH');
+const eM = document.getElementById('eM');
+const resTxt = document.getElementById('resTxt');
+const resSub = document.getElementById('resSub');
+const explainEl = document.getElementById('explain');
+
+function to24(h, m, ampm) {
+  let hh = parseInt(h, 10); if (isNaN(hh) || hh < 1) hh = 12; if (hh > 12) hh = 12;
+  let mm = parseInt(m, 10); if (isNaN(mm)) mm = 0; mm = Math.max(0, Math.min(59, mm));
+  if (ampm === 'AM') { if (hh === 12) hh = 0; } else { if (hh !== 12) hh += 12; }
+  return hh * 60 + mm;
+}
+
+function hourAng(tot) { return ((tot / 60) % 12) * 30; }
+function minAng(tot) { return (tot % 60) * 6; }
+
+function makeArc(cx, cy, r, a1, a2) {
+  let sw = a2 - a1; if (sw <= 0) sw += 360; if (sw >= 360 || sw === 0) return '';
+  return ['M', cx, cy, 'L', gx(cx, r, a1), gy(cy, r, a1),
+    'A', r, r, 0, sw > 180 ? 1 : 0, 1, gx(cx, r, a2), gy(cy, r, a2), 'Z'].join(' ');
+}
+
+function setLine(line, x1, y1, x2, y2) {
+  line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+  line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+}
+function setCirc(c, cx, cy) { c.setAttribute('cx', cx); c.setAttribute('cy', cy); }
+
+function setVis(el, vis) {
+  el.setAttribute('display', vis ? '' : 'none');
+}
+
+function update() {
+  const sv = parseInt(sH.value, 10) || 12;
+  const smv = parseInt(sM.value, 10) || 0;
+  const ev = parseInt(eH.value, 10) || 12;
+  const emv = parseInt(eM.value, 10) || 0;
+  const sAmpm = getAmpm(sAmpmToggle);
+  const eAmpm = getAmpm(eAmpmToggle);
+
+  const startTot = to24(sv, smv, sAmpm);
+  const endTot = to24(ev, emv, eAmpm);
+
+  let diff = endTot - startTot;
+  if (diff < 0) diff += 1440;
+  const dH = Math.floor(diff / 60);
+  const dM = diff % 60;
+
+  resTxt.textContent = dH + 'h ' + dM + 'm';
+  resSub.textContent = '(' + diff + ' min)';
+
+  const sa = hourAng(startTot), ea = hourAng(endTot);
+  const sma = minAng(startTot), ema = minAng(endTot);
+
+  /* Arc */
+  arcPath.setAttribute('d', diff === 0 ? '' : makeArc(CX, CY, HOUR_R + 8, sa, ea));
+
+  /* Start clock visibility */
+  setVis(sHourLine, showStart); setVis(sMinLine, showStart);
+  setVis(sGrip, showStart); setVis(sMinGrip, showStart);
+
+  /* End clock visibility */
+  setVis(eHourLine, showEnd); setVis(eMinLine, showEnd);
+  setVis(eGrip, showEnd); setVis(eMinGrip, showEnd);
+
+  /* Arc only visible when both are shown */
+  setVis(arcPath, showStart && showEnd);
+
+  /* Position start */
+  setLine(sHourLine, CX, CY, gx(CX, HOUR_R, sa), gy(CY, HOUR_R, sa));
+  setLine(sMinLine, CX, CY, gx(CX, MIN_R, sma), gy(CY, MIN_R, sma));
+  setCirc(sGrip, gx(CX, HOUR_R, sa), gy(CY, HOUR_R, sa));
+  setCirc(sMinGrip, gx(CX, MIN_R, sma), gy(CY, MIN_R, sma));
+
+  /* Position end */
+  setLine(eHourLine, CX, CY, gx(CX, HOUR_R, ea), gy(CY, HOUR_R, ea));
+  setLine(eMinLine, CX, CY, gx(CX, MIN_R, ema), gy(CY, MIN_R, ema));
+  setCirc(eGrip, gx(CX, HOUR_R, ea), gy(CY, HOUR_R, ea));
+  setCirc(eMinGrip, gx(CX, MIN_R, ema), gy(CY, MIN_R, ema));
+
+  /* Explanation */
+  const sStr = sv + ':' + pad(smv) + ' ' + sAmpm;
+  const eStr = ev + ':' + pad(emv) + ' ' + eAmpm;
+  var html = '<div class="title">Step-by-Step</div>';
+
+  if (diff === 0) {
+    html += '<div class="step-row"><span class="step-pill done">✓</span><span>Same time — difference is <strong>0h 0m</strong>.</span></div>';
+  } else {
+    html += '<div class="step-row"><span class="step-pill">1</span><span>Start at <strong>' + sStr + '</strong>.</span></div>';
+    if (dH > 0) {
+      var after = (startTot + dH * 60) % 1440;
+      var aH12 = Math.floor(after / 60) % 12 || 12;
+      var aAp = after >= 720 ? 'PM' : 'AM';
+      html += '<div class="step-row"><span class="step-pill">2</span><span>Count forward <strong>' + dH + ' hour' + (dH > 1 ? 's' : '') + '</strong> → <strong>' + aH12 + ':' + pad(smv) + ' ' + aAp + '</strong></span></div>';
+    }
+    if (dM > 0) {
+      var n = dH > 0 ? 3 : 2;
+      html += '<div class="step-row"><span class="step-pill">' + n + '</span><span>Count forward <strong>' + dM + ' minute' + (dM > 1 ? 's' : '') + '</strong> → <strong>' + eStr + '</strong></span></div>';
+    }
+    html += '<div class="step-row"><span class="step-pill done">✓</span><span>Difference = <strong>' + dH + ' hr' + (dH !== 1 ? 's' : '') + ' ' + dM + ' min</strong> (' + diff + ' minutes total)</span></div>';
+  }
+  explainEl.innerHTML = html;
+}
+
+/* Drag */
+var dragging = null;
+
+function angleFromEvt(e) {
+  var r = svgEl.getBoundingClientRect();
+  var sx = 400 / r.width, sy = 400 / r.height;
+  var cx = e.touches ? e.touches[0].clientX : e.clientX;
+  var cy = e.touches ? e.touches[0].clientY : e.clientY;
+  var dx = (cx - r.left) * sx - CX;
+  var dy = (cy - r.top) * sy - CY;
+  var a = Math.atan2(dx, -dy) * 180 / Math.PI;
+  if (a < 0) a += 360;
+  return a;
+}
+
+function snapToHM(angle) {
+  var tot = (angle / 360) * 720;
+  tot = Math.round(tot / 5) * 5;
+  if (tot >= 720) tot -= 720;
+  var h = Math.floor(tot / 60);
+  if (h === 0) h = 12;
+  return { h: h, m: tot % 60 };
+}
+function snapToMin(angle) {
+  var m = Math.round((angle / 360) * 60);
+  if (m >= 60) m = 0;
+  return m;
+}
+
+function startDrag(which, e) { e.preventDefault(); dragging = which; }
+
+function attachGripListeners() {
+  sGrip.addEventListener('mousedown', function(e) { startDrag('sH', e); });
+  sGrip.addEventListener('touchstart', function(e) { startDrag('sH', e); }, { passive: false });
+  eGrip.addEventListener('mousedown', function(e) { startDrag('eH', e); });
+  eGrip.addEventListener('touchstart', function(e) { startDrag('eH', e); }, { passive: false });
+  sMinGrip.addEventListener('mousedown', function(e) { startDrag('sM', e); });
+  sMinGrip.addEventListener('touchstart', function(e) { startDrag('sM', e); }, { passive: false });
+  eMinGrip.addEventListener('mousedown', function(e) { startDrag('eM', e); });
+  eMinGrip.addEventListener('touchstart', function(e) { startDrag('eM', e); }, { passive: false });
+}
+
+function onMove(e) {
+  if (!dragging) return;
+  e.preventDefault();
+  var a = angleFromEvt(e);
+  if (dragging === 'sH') { var t = snapToHM(a); sH.value = t.h; sM.value = t.m; }
+  else if (dragging === 'eH') { var t2 = snapToHM(a); eH.value = t2.h; eM.value = t2.m; }
+  else if (dragging === 'sM') { sM.value = snapToMin(a); }
+  else if (dragging === 'eM') { eM.value = snapToMin(a); }
+  update();
+}
+function onUp() { dragging = null; }
+
+document.addEventListener('mousemove', onMove);
+document.addEventListener('mouseup', onUp);
+document.addEventListener('touchmove', onMove, { passive: false });
+document.addEventListener('touchend', onUp);
+
+/* Input clamping */
+function clamp(inp, lo, hi) {
+  inp.addEventListener('input', function() {
+    var v = parseInt(inp.value, 10);
+    if (!isNaN(v)) { if (v < lo) inp.value = lo; if (v > hi) inp.value = hi; }
+    update();
+  });
+  inp.addEventListener('change', function() {
+    var v = parseInt(inp.value, 10);
+    if (isNaN(v) || v < lo) inp.value = lo; if (v > hi) inp.value = hi;
+    update();
+  });
+}
+clamp(sH, 1, 12);
+clamp(sM, 0, 59);
+clamp(eH, 1, 12);
+clamp(eM, 0, 59);
+
+/* Minute stepper buttons */
+document.querySelectorAll('.min-steppers button').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var targetId = btn.dataset.target;
+    var dir = parseInt(btn.dataset.dir, 10);
+    var inp = document.getElementById(targetId);
+    var v = parseInt(inp.value, 10) || 0;
+    v += dir;
+    if (v < 0) v = 59;
+    if (v > 59) v = 0;
+    inp.value = v;
+    update();
+  });
+});
+
+/* Init */
+buildFace();
+buildDynamic();
+attachGripListeners();
+update();
+</script>
+</body>
+</html>
+
