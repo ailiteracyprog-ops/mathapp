@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time Difference Calculator</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: #F4F1EC;
+            color: #1B1B1F;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px 16px;
+        }
+        .header { text-align: center; margin-bottom: 24px; }
+        .app { max-width: 440px; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+        .clock-wrap { width: 200px; height: 200px; }
+        input, button { font-family: 'DM Mono', monospace; font-size: 1rem; }
+        .adjust { display: flex; gap: 10px; flex-direction: column; }
+        .label { display: flex; justify-content: space-between; width: 100%; }
+        .circle { cursor: pointer; }
+
+        /* Button styles */
+        .time-button {
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .time-button.am {
+            background-color: #d5f4e6; /* Light green */
+            color: #1b1b1f;
+        }
+        .time-button.pm {
+            background-color: #f4d5d5; /* Light red */
+            color: #1b1b1f;
+        }
+        .time-button.active.am {
+            background-color: #2ecc71; /* Darker green */
+            color: #fff;
+        }
+        .time-button.active.pm {
+            background-color: #e74c3c; /* Darker red */
+            color: #fff;
+        }
+        .toggle-button {
+            background-color: #f1c40f; /* Yellow */
+        }
+        .toggle-button.active {
+            background-color: #f39c12; /* Darker yellow */
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Time Difference Calculator</h1>
+    <p>Drag the hands or type below</p>
+</div>
+
+<div class="app">
+    <div class="clock-wrap">
+        <svg id="clock" viewBox="0 0 400 400" style="width: 100%; height: 100%;">
+            <circle cx="200" cy="200" r="180" fill="#FFFDF9" stroke="#1B1B1F" stroke-width="10" />
+            <line id="hourHand" x1="200" y1="200" x2="200" y2="100" stroke="red" stroke-width="8" />
+            <line id="minuteHand" x1="200" y1="200" x2="200" y2="50" stroke="red" stroke-width="4" />
+            <line id="endHourHand" x1="200" y1="200" x2="200" y2="100" stroke="green" stroke-width="8" />
+            <line id="endMinuteHand" x1="200" y1="200" x2="200" y2="50" stroke="green" stroke-width="4" />
+            <circle class="circle" id="hourCircle" cx="200" cy="100" r="10" fill="red" />
+            <circle class="circle" id="minuteCircle" cx="200" cy="50" r="5" fill="red" />
+            <circle class="circle" id="endHourCircle" cx="200" cy="100" r="10" fill="green" />
+            <circle class="circle" id="endMinuteCircle" cx="200" cy="50" r="5" fill="green" />
+            <circle cx="200" cy="200" r="10" fill="#1B1B1F" />
+        </svg>
+    </div>
+
+    <div class="adjust">
+        <div>
+            <label class="label">
+                <span style="color: red;">Start Time:</span>
+                <span>
+                    <button id="sAm" class="time-button am active">AM</button>
+                    <button id="sPm" class="time-button pm">PM</button>
+                </span>
+            </label>
+            <input type="number" id="sH" min="1" max="12" value="9"> :
+            <input type="number" id="sM" min="0" max="59" value="15">
+            <button id="sPlus">+</button>
+            <button id="sMinus">-</button>
+            <button id="tToggleStart" class="toggle-button">Toggle Start Time</button>
+        </div>
+        <div>
+            <label class="label">
+                <span style="color: green;">End Time:</span>
+                <span>
+                    <button id="eAm" class="time-button am active">AM</button>
+                    <button id="ePm" class="time-button pm">PM</button>
+                </span>
+            </label>
+            <input type="number" id="eH" min="1" max="12" value="2"> :
+            <input type="number" id="eM" min="0" max="59" value="45">
+            <button id="ePlus">+</button>
+            <button id="eMinus">-</button>
+            <button id="tToggleEnd" class="toggle-button">Toggle End Time</button>
+        </div>
+    </div>
+    
+    <div>
+        <span id="resTxt">5h 30m</span>
+    </div>
+    
+    <button id="calculate">Calculate Difference</button>
+</div>
+
+<script>
+    const hourHand = document.getElementById('hourHand');
+    const minuteHand = document.getElementById('minuteHand');
+    const endHourHand = document.getElementById('endHourHand');
+    const endMinuteHand = document.getElementById('endMinuteHand');
+    const hourCircle = document.getElementById('hourCircle');
+    const minuteCircle = document.getElementById('minuteCircle');
+    const endHourCircle = document.getElementById('endHourCircle');
+    const endMinuteCircle = document.getElementById('endMinuteCircle');
+    const sH = document.getElementById('sH');
+    const sM = document.getElementById('sM');
+    const eH = document.getElementById('eH');
+    const eM = document.getElementById('eM');
+    const resTxt = document.getElementById('resTxt');
+
+    let startAm = true;  // Default to AM
+    let endAm = true;    // Default to AM
+    let dragging = null;
+
+    function updateClock() {
+        const startHour = parseInt(sH.value) || 12;
+        const startMinute = parseInt(sM.value) || 0;
+
+        const hourAngle = (startHour % 12) * 30 + (startMinute / 60) * 30;
+        const minuteAngle = startMinute * 6;
+
+        hourHand.setAttribute('transform', `rotate(${hourAngle}, 200, 200)`);
+        minuteHand.setAttribute('transform', `rotate(${minuteAngle}, 200, 200)`);
+        minuteCircle.setAttribute('transform', `rotate(${minuteAngle}, 200, 200)`);
+        hourCircle.setAttribute('transform', `rotate(${hourAngle}, 200, 200)`);
+    }
+
+    function updateEndClock() {
+        const endHour = parseInt(eH.value) || 12;
+        const endMinute = parseInt(eM.value) || 0;
+
+        const endHourAngle = (endHour % 12) * 30 + (endMinute / 60) * 30;
+        const endMinuteAngle = endMinute * 6;
+
+        endHourHand.setAttribute('transform', `rotate(${endHourAngle}, 200, 200)`);
+        endMinuteHand.setAttribute('transform', `rotate(${endMinuteAngle}, 200, 200)`);
+        endMinuteCircle.setAttribute('transform', `rotate(${endMinuteAngle}, 200, 200)`);
+        endHourCircle.setAttribute('transform', `rotate(${endHourAngle}, 200, 200)`);
+    }
+
+    function startDrag(event, hand) {
+        dragging = hand;
+        document.addEventListener('mousemove', moveHand);
+        document.addEventListener('mouseup', stopDrag);
+        document.addEventListener('touchmove', moveHand, { passive: false });
+        document.addEventListener('touchend', stopDrag);
+    }
+
+    function moveHand(event) {
+        const { clientX, clientY } = event.touches ? event.touches[0] : event;
+
+        const rect = clock.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+
+        const angle = Math.atan2(clientY - cy, clientX - cx) * (180 / Math.PI) + 90;
+
+        if (dragging === 'startHour') {
+            const hour = Math.round(angle / 30) % 12 || 12;
+            sH.value = hour;
+            if (sM.value >= 60) {
+                sM.value = 0; // Reset minutes after hour change
+            }
+        } else if (dragging === 'startMinute') {
+            const minute = Math.round(angle / 6) % 60;
+            sM.value = minute;
+            if (sM.value < 0) {
+                sM.value = 0; // Prevent negative minute values
+            }
+        } else if (dragging === 'endHour') {
+            const hour = Math.round(angle / 30) % 12 || 12;
+            eH.value = hour;
+            if (eM.value >= 60) {
+                eM.value = 0; // Reset minutes after hour change
+            }
+        } else if (dragging === 'endMinute') {
+            const minute = Math.round(angle / 6) % 60;
+            eM.value = minute;
+            if (eM.value < 0) {
+                eM.value = 0; // Prevent negative minute values
+            }
+        }
+
+        // Update both clocks
+        updateClock();
+        updateEndClock();
+    }
+
+    function stopDrag() {
+        dragging = null;
+        document.removeEventListener('mousemove', moveHand);
+        document.removeEventListener('mouseup', stopDrag);
+        document.removeEventListener('touchmove', moveHand);
+        document.removeEventListener('touchend', stopDrag);
+    }
+
+    function adjustStartTime(adjustment) {
+        const currentMinutes = parseInt(sM.value) || 0;
+        const currentHours = parseInt(sH.value) || 12;
+
+        let newMinutes = currentMinutes + adjustment;
+        let newHours = currentHours;
+
+        if (newMinutes >= 60) {
+            newMinutes = 0;
+            newHours = (currentHours % 12) + 1;
+        }
+        if (newMinutes < 0) {
+            newMinutes = 0; // Do not allow negative minutes
+        }
+
+        sM.value = newMinutes;
+        sH.value = newHours;
+        updateClock();
+    }
+
+    function adjustEndTime(adjustment) {
+        const currentMinutes = parseInt(eM.value) || 0;
+        const currentHours = parseInt(eH.value) || 12;
+
+        let newMinutes = currentMinutes + adjustment;
+        let newHours = currentHours;
+
+        if (newMinutes >= 60) {
+            newMinutes = 0;
+            newHours = (currentHours % 12) + 1;
+        }
+        if (newMinutes < 0) {
+            newMinutes = 0; // Do not allow negative minutes
+        }
+
+        eM.value = newMinutes;
+        eH.value = newHours;
+        updateEndClock();
+    }
+
+    function toggleButton(button, state) {
+        if (state) {
+            button.classList.add('active');
+        } else {
+            button.classList.remove('active');
+        }
+    }
+
+    hourCircle.addEventListener('mousedown', (e) => startDrag(e, 'startHour'));
+    minuteCircle.addEventListener('mousedown', (e) => startDrag(e, 'startMinute'));
+    endHourCircle.addEventListener('mousedown', (e) => startDrag(e, 'endHour'));
+    endMinuteCircle.addEventListener('mousedown', (e) => startDrag(e, 'endMinute'));
+    
+    hourCircle.addEventListener('touchstart', (e) => startDrag(e, 'startHour'), { passive: false });
+    minuteCircle.addEventListener('touchstart', (e) => startDrag(e, 'startMinute'), { passive: false });
+    endHourCircle.addEventListener('touchstart', (e) => startDrag(e, 'endHour'), { passive: false });
+    endMinuteCircle.addEventListener('touchstart', (e) => startDrag(e, 'endMinute'), { passive: false });
+
+    sH.addEventListener('input', () => {
+        updateClock();
+    });
+    sM.addEventListener('input', () => {
+        sM.value = Math.max(0, Math.min(sM.value, 59)); // Ensure no negative numbers or over 59
+        updateClock();
+    });
+    eH.addEventListener('input', () => {
+        updateEndClock();
+    });
+    eM.addEventListener('input', () => {
+        eM.value = Math.max(0, Math.min(eM.value, 59)); // Ensure no negative numbers or over 59
+        updateEndClock();
+    });
+
+    document.getElementById('sPlus').addEventListener('click', () => adjustStartTime(1));
+    document.getElementById('sMinus').addEventListener('click', () => adjustStartTime(-1));
+    document.getElementById('ePlus').addEventListener('click', () => adjustEndTime(1));
+    document.getElementById('eMinus').addEventListener('click', () => adjustEndTime(-1));
+
+    document.getElementById('sAm').addEventListener('click', () => {
+        startAm = true;
+        toggleButton(document.getElementById('sAm'), true);
+        toggleButton(document.getElementById('sPm'), false);
+    });
+    
+    document.getElementById('sPm').addEventListener('click', () => {
+        startAm = false;
+        toggleButton(document.getElementById('sPm'), true);
+        toggleButton(document.getElementById('sAm'), false);
+    });
+
+    document.getElementById('eAm').addEventListener('click', () => {
+        endAm = true;
+        toggleButton(document.getElementById('eAm'), true);
+        toggleButton(document.getElementById('ePm'), false);
+    });
+    
+    document.getElementById('ePm').addEventListener('click', () => {
+        endAm = false;
+        toggleButton(document.getElementById('ePm'), true);
+        toggleButton(document.getElementById('eAm'), false);
+    });
+
+    document.getElementById('tToggleStart').addEventListener('click', () => {
+        const button = document.getElementById('tToggleStart');
+        button.classList.toggle('active');
+    });
+
+    document.getElementById('tToggleEnd').addEventListener('click', () => {
+        const button = document.getElementById('tToggleEnd');
+        button.classList.toggle('active');
+    });
+
+    document.getElementById('calculate').addEventListener('click', () => {
+        const startHour = parseInt(sH.value) + (startAm ? 0 : 12);
+        const startMinute = parseInt(sM.value);
+        const endHour = parseInt(eH.value) + (endAm ? 0 : 12);
+        const endMinute = parseInt(eM.value);
+
+        const startTotal = startHour * 60 + startMinute;
+        const endTotal = endHour * 60 + endMinute;
+        let diff = endTotal - startTotal;
+
+        if (diff < 0) diff += 24 * 60;  // Handle wraparound
+
+        const diffHours = Math.floor(diff / 60);
+        const diffMinutes = diff % 60;
+
+        resTxt.textContent = `${diffHours}h ${diffMinutes}m`;
+    });
+
+    updateClock(); // Initial update
+    updateEndClock(); // Reflect end time initially
+</script>
+
+</body>
+</html>
