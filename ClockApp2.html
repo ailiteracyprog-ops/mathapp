@@ -1,297 +1,346 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Time Difference Calculator</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Outfit', sans-serif;
-            background: #F4F1EC;
-            color: #1B1B1F;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 24px 16px;
-        }
-        .header { text-align: center; margin-bottom: 24px; }
-        .app { max-width: 440px; display: flex; flex-direction: column; align-items: center; gap: 18px; }
-        .clock-wrap { width: 200px; height: 200px; }
-        input, button { font-family: 'DM Mono', monospace; font-size: 1rem; }
-        .adjust { display: flex; gap: 10px; }
-        .label { display: flex; justify-content: space-between; width: 120px; }
-        .circle { cursor: pointer; }
-    </style>
-</head>
-<body>
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Clock, Info, ChevronUp, ChevronDown } from 'lucide-react';
 
-<div class="header">
-    <h1>Time Difference Calculator</h1>
-    <p>Drag the hands or type below</p>
-</div>
+const TimeDifferenceCalculator = () => {
+  // State for Start and End times
+  const [startTime, setStartTime] = useState({ h: 9, m: 15, ampm: 'AM' });
+  const [endTime, setEndTime] = useState({ h: 2, m: 45, ampm: 'PM' });
+  const [showStart, setShowStart] = useState(true);
+  const [showEnd, setShowEnd] = useState(true);
+  
+  const svgRef = useRef(null);
+  const [dragging, setDragging] = useState(null);
 
-<div class="app">
-    <div class="clock-wrap">
-        <svg id="clock" viewBox="0 0 400 400" style="width: 100%; height: 100%;">
-            <circle cx="200" cy="200" r="180" fill="#FFFDF9" stroke="#1B1B1F" stroke-width="10" />
-            <line id="hourHand" x1="200" y1="200" x2="200" y2="100" stroke="red" stroke-width="8" />
-            <line id="minuteHand" x1="200" y1="200" x2="200" y2="50" stroke="red" stroke-width="4" />
-            <line id="endHourHand" x1="200" y1="200" x2="200" y2="100" stroke="green" stroke-width="8" />
-            <line id="endMinuteHand" x1="200" y1="200" x2="200" y2="50" stroke="green" stroke-width="4" />
-            <circle class="circle" id="hourCircle" cx="200" cy="100" r="10" fill="red" />
-            <circle class="circle" id="minuteCircle" cx="200" cy="50" r="5" fill="red" />
-            <circle class="circle" id="endHourCircle" cx="200" cy="100" r="10" fill="green" />
-            <circle class="circle" id="endMinuteCircle" cx="200" cy="50" r="5" fill="green" />
-            <circle cx="200" cy="200" r="10" fill="#1B1B1F" />
-        </svg>
-    </div>
+  // Constants for SVG drawing
+  const CX = 200;
+  const CY = 200;
+  const FACE_R = 160;
+  const HOUR_R = 85;
+  const MIN_R = 125;
 
-    <div class="adjust">
-        <div>
-            <label class="label">
-                <span style="color: red;">Start Time:</span>
-                <span>
-                    <button id="sAm">AM</button>
-                    <button id="sPm">PM</button>
-                </span>
-            </label>
-            <input type="number" id="sH" min="1" max="12" value="9"> :
-            <input type="number" id="sM" min="0" max="59" value="15">
-            <button id="sPlus">+</button>
-            <button id="sMinus">-</button>
-            <button id="tToggleStart">Toggle Start Time</button>
+  // Helper: Convert to 24-hour total minutes
+  const toTotalMinutes = (time) => {
+    let h = time.h === 12 ? 0 : time.h;
+    if (time.ampm === 'PM') h += 12;
+    return h * 60 + time.m;
+  };
+
+  const startTotal = useMemo(() => toTotalMinutes(startTime), [startTime]);
+  const endTotal = useMemo(() => toTotalMinutes(endTime), [endTime]);
+
+  // Calculate Difference
+  const diffMinutes = useMemo(() => {
+    let diff = endTotal - startTotal;
+    return diff < 0 ? diff + 1440 : diff;
+  }, [startTotal, endTotal]);
+
+  const diffH = Math.floor(diffMinutes / 60);
+  const diffM = diffMinutes % 60;
+
+  // SVG Math Helpers
+  const polarToCartesian = (centerX, centerY, radius, angleInDegrees) => {
+    const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180.0;
+    return {
+      x: centerX + radius * Math.cos(angleInRadians),
+      y: centerY + radius * Math.sin(angleInRadians),
+    };
+  };
+
+  const describeArc = (x, y, radius, startAngle, endAngle) => {
+    const start = polarToCartesian(x, y, radius, endAngle);
+    const end = polarToCartesian(x, y, radius, startAngle);
+    let diff = endAngle - startAngle;
+    if (diff < 0) diff += 360;
+    const largeArcFlag = diff <= 180 ? "0" : "1";
+    return [
+      "M", x, y,
+      "L", end.x, end.y,
+      "A", radius, radius, 0, largeArcFlag, 1, start.x, start.y,
+      "Z"
+    ].join(" ");
+  };
+
+  // Dragging Logic
+  const handleMouseMove = (e) => {
+    if (!dragging || !svgRef.current) return;
+
+    const rect = svgRef.current.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    const dx = clientX - (rect.left + rect.width / 2);
+    const dy = clientY - (rect.top + rect.height / 2);
+    let angle = Math.atan2(dx, -dy) * (180 / Math.PI);
+    if (angle < 0) angle += 360;
+
+    if (dragging === 'sH' || dragging === 'eH') {
+      let totalMinutes = Math.round(((angle / 360) * 720) / 5) * 5;
+      const h = Math.floor(totalMinutes / 60) || 12;
+      const m = totalMinutes % 60;
+      if (dragging === 'sH') setStartTime(prev => ({ ...prev, h, m }));
+      else setEndTime(prev => ({ ...prev, h, m }));
+    } else {
+      const m = Math.round((angle / 360) * 60) % 60;
+      if (dragging === 'sM') setStartTime(prev => ({ ...prev, m }));
+      else setEndTime(prev => ({ ...prev, m }));
+    }
+  };
+
+  const stopDragging = () => setDragging(null);
+
+  useEffect(() => {
+    if (dragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', stopDragging);
+      window.addEventListener('touchmove', handleMouseMove, { passive: false });
+      window.addEventListener('touchend', stopDragging);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', stopDragging);
+      window.removeEventListener('touchmove', handleMouseMove);
+      window.removeEventListener('touchend', stopDragging);
+    };
+  }, [dragging]);
+
+  // Hand Angles
+  const sHA = ((startTotal / 60) % 12) * 30;
+  const sMA = (startTime.m) * 6;
+  const eHA = ((endTotal / 60) % 12) * 30;
+  const eMA = (endTime.m) * 6;
+
+  const startPosH = polarToCartesian(CX, CY, HOUR_R, sHA);
+  const startPosM = polarToCartesian(CX, CY, MIN_R, sMA);
+  const endPosH = polarToCartesian(CX, CY, HOUR_R, eHA);
+  const endPosM = polarToCartesian(CX, CY, MIN_R, eMA);
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-stone-100 p-4 text-slate-800 font-sans">
+      <div className="w-full max-w-md space-y-6">
+        
+        <div className="text-center space-y-1">
+          <h1 className="text-2xl font-extrabold tracking-tight">Time Difference</h1>
+          <p className="text-sm text-stone-500">Drag the clock hands or use the inputs</p>
         </div>
-        <div>
-            <label class="label">
-                <span style="color: green;">End Time:</span>
-                <span>
-                    <button id="eAm">AM</button>
-                    <button id="ePm">PM</button>
-                </span>
-            </label>
-            <input type="number" id="eH" min="1" max="12" value="2"> :
-            <input type="number" id="eM" min="0" max="59" value="45">
-            <button id="ePlus">+</button>
-            <button id="eMinus">-</button>
-            <button id="tToggleEnd">Toggle End Time</button>
+
+        {/* Clock Visualization */}
+        <div className="relative flex justify-center">
+          <svg 
+            ref={svgRef}
+            viewBox="0 0 400 400" 
+            className="w-full max-w-xs drop-shadow-2xl select-none touch-none"
+          >
+            {/* Outer Rim */}
+            <circle cx={CX} cy={CY} r={FACE_R + 15} className="fill-slate-900" />
+            <circle cx={CX} cy={CY} r={FACE_R + 5} className="fill-stone-300" />
+            <circle cx={CX} cy={CY} r={FACE_R} className="fill-stone-50" />
+
+            {/* Ticks */}
+            {[...Array(60)].map((_, i) => (
+              <line
+                key={i}
+                x1={polarToCartesian(CX, CY, FACE_R - (i % 5 === 0 ? 15 : 8), i * 6).x}
+                y1={polarToCartesian(CX, CY, FACE_R - (i % 5 === 0 ? 15 : 8), i * 6).y}
+                x2={polarToCartesian(CX, CY, FACE_R - 2, i * 6).x}
+                y2={polarToCartesian(CX, CY, FACE_R - 2, i * 6).y}
+                stroke={i % 5 === 0 ? "#1c1917" : "#d6d3d1"}
+                strokeWidth={i % 5 === 0 ? 3 : 1}
+              />
+            ))}
+
+            {/* Numbers */}
+            {[...Array(12)].map((_, i) => {
+              const pos = polarToCartesian(CX, CY, FACE_R - 35, (i + 1) * 30);
+              return (
+                <text
+                  key={i}
+                  x={pos.x}
+                  y={pos.y + 6}
+                  textAnchor="middle"
+                  className="fill-slate-900 font-bold text-xl"
+                >
+                  {i + 1}
+                </text>
+              );
+            })}
+
+            {/* Difference Arc */}
+            {showStart && showEnd && diffMinutes > 0 && (
+              <path 
+                d={describeArc(CX, CY, HOUR_R + 10, sHA, eHA)} 
+                className="fill-orange-400/20 stroke-orange-400 stroke-2"
+                strokeDasharray="4 2"
+              />
+            )}
+
+            {/* Start Hands */}
+            {showStart && (
+              <g>
+                <line x1={CX} y1={CY} x2={startPosH.x} y2={startPosH.y} className="stroke-red-500" strokeWidth="6" strokeLinecap="round" />
+                <line x1={CX} y1={CY} x2={startPosM.x} y2={startPosM.y} className="stroke-red-500 opacity-40" strokeWidth="3" strokeLinecap="round" />
+                <circle 
+                  cx={startPosH.x} cy={startPosH.y} r="12" 
+                  className="fill-red-500 stroke-white stroke-2 cursor-grab active:cursor-grabbing"
+                  onMouseDown={() => setDragging('sH')}
+                  onTouchStart={() => setDragging('sH')}
+                />
+                <circle 
+                  cx={startPosM.x} cy={startPosM.y} r="8" 
+                  className="fill-red-500 opacity-70 stroke-white stroke-2 cursor-grab active:cursor-grabbing"
+                  onMouseDown={() => setDragging('sM')}
+                  onTouchStart={() => setDragging('sM')}
+                />
+              </g>
+            )}
+
+            {/* End Hands */}
+            {showEnd && (
+              <g>
+                <line x1={CX} y1={CY} x2={endPosH.x} y2={endPosH.y} className="stroke-emerald-600" strokeWidth="6" strokeLinecap="round" />
+                <line x1={CX} y1={CY} x2={endPosM.x} y2={endPosM.y} className="stroke-emerald-600 opacity-40" strokeWidth="3" strokeLinecap="round" />
+                <circle 
+                  cx={endPosH.x} cy={endPosH.y} r="12" 
+                  className="fill-emerald-600 stroke-white stroke-2 cursor-grab active:cursor-grabbing"
+                  onMouseDown={() => setDragging('eH')}
+                  onTouchStart={() => setDragging('eH')}
+                />
+                <circle 
+                  cx={endPosM.x} cy={endPosM.y} r="8" 
+                  className="fill-emerald-600 opacity-70 stroke-white stroke-2 cursor-grab active:cursor-grabbing"
+                  onMouseDown={() => setDragging('eM')}
+                  onTouchStart={() => setDragging('eM')}
+                />
+              </g>
+            )}
+
+            <circle cx={CX} cy={CY} r="6" className="fill-slate-900" />
+          </svg>
         </div>
+
+        {/* Visibility Toggles */}
+        <div className="flex justify-center gap-6">
+          <button 
+            onClick={() => setShowStart(!showStart)}
+            className={`flex items-center gap-2 text-xs font-bold transition-opacity ${showStart ? 'opacity-100' : 'opacity-40'}`}
+          >
+            <div className={`w-3 h-3 rounded-full bg-red-500`} />
+            START CLOCK
+          </button>
+          <button 
+            onClick={() => setShowEnd(!showEnd)}
+            className={`flex items-center gap-2 text-xs font-bold transition-opacity ${showEnd ? 'opacity-100' : 'opacity-40'}`}
+          >
+            <div className={`w-3 h-3 rounded-full bg-emerald-600`} />
+            END CLOCK
+          </button>
+        </div>
+
+        {/* Input Panel */}
+        <div className="bg-white p-5 rounded-2xl shadow-xl space-y-4 border border-stone-200">
+          {/* Start Row */}
+          <div className="flex items-center gap-3">
+            <div className="w-16 text-xs font-bold text-red-500">START</div>
+            <div className="flex-1 flex items-center gap-2">
+              <input 
+                type="number" value={startTime.h} 
+                onChange={(e) => setStartTime({...startTime, h: parseInt(e.target.value) || 12})}
+                className="w-12 p-2 bg-stone-100 rounded-lg text-center font-mono font-bold outline-orange-400"
+              />
+              <span className="font-bold">:</span>
+              <input 
+                type="number" value={startTime.m} 
+                onChange={(e) => setStartTime({...startTime, m: parseInt(e.target.value) || 0})}
+                className="w-12 p-2 bg-stone-100 rounded-lg text-center font-mono font-bold outline-orange-400"
+              />
+              <div className="flex bg-stone-100 rounded-lg overflow-hidden border border-stone-200">
+                {['AM', 'PM'].map(ampm => (
+                  <button
+                    key={ampm}
+                    onClick={() => setStartTime({...startTime, ampm})}
+                    className={`px-3 py-2 text-xs font-bold ${startTime.ampm === ampm ? 'bg-orange-400 text-white' : 'text-stone-400'}`}
+                  >
+                    {ampm}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* End Row */}
+          <div className="flex items-center gap-3">
+            <div className="w-16 text-xs font-bold text-emerald-600">END</div>
+            <div className="flex-1 flex items-center gap-2">
+              <input 
+                type="number" value={endTime.h} 
+                onChange={(e) => setEndTime({...endTime, h: parseInt(e.target.value) || 12})}
+                className="w-12 p-2 bg-stone-100 rounded-lg text-center font-mono font-bold outline-orange-400"
+              />
+              <span className="font-bold">:</span>
+              <input 
+                type="number" value={endTime.m} 
+                onChange={(e) => setEndTime({...endTime, m: parseInt(e.target.value) || 0})}
+                className="w-12 p-2 bg-stone-100 rounded-lg text-center font-mono font-bold outline-orange-400"
+              />
+              <div className="flex bg-stone-100 rounded-lg overflow-hidden border border-stone-200">
+                {['AM', 'PM'].map(ampm => (
+                  <button
+                    key={ampm}
+                    onClick={() => setEndTime({...endTime, ampm})}
+                    className={`px-3 py-2 text-xs font-bold ${endTime.ampm === ampm ? 'bg-orange-400 text-white' : 'text-stone-400'}`}
+                  >
+                    {ampm}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Result Strip */}
+          <div className="flex items-center justify-between bg-orange-50 p-4 rounded-xl border border-orange-100">
+            <div className="flex items-center gap-3">
+              <Clock className="text-orange-500" size={20} />
+              <div className="text-xl font-mono font-bold text-orange-600">
+                {diffH}h {diffM}m
+              </div>
+            </div>
+            <div className="text-xs font-bold text-orange-400 bg-white px-2 py-1 rounded-md shadow-sm">
+              {diffMinutes} MIN
+            </div>
+          </div>
+        </div>
+
+        {/* Explanation */}
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-stone-200 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-bold">
+            <Info size={16} className="text-stone-400" />
+            Step-by-Step
+          </div>
+          <div className="space-y-2 text-sm text-stone-600">
+            <div className="flex gap-3">
+              <span className="w-5 h-5 bg-stone-100 rounded-full flex items-center justify-center text-[10px] font-bold">1</span>
+              <span>Start at <strong>{startTime.h}:{startTime.m.toString().padStart(2, '0')} {startTime.ampm}</strong></span>
+            </div>
+            {diffH > 0 && (
+              <div className="flex gap-3">
+                <span className="w-5 h-5 bg-stone-100 rounded-full flex items-center justify-center text-[10px] font-bold">2</span>
+                <span>Count forward <strong>{diffH} hour{diffH > 1 ? 's' : ''}</strong></span>
+              </div>
+            )}
+            {diffM > 0 && (
+              <div className="flex gap-3">
+                <span className="w-5 h-5 bg-stone-100 rounded-full flex items-center justify-center text-[10px] font-bold">{diffH > 0 ? 3 : 2}</span>
+                <span>Count forward <strong>{diffM} minute{diffM > 1 ? 's' : ''}</strong></span>
+              </div>
+            )}
+            <div className="pt-2 border-t border-stone-100 flex items-center gap-2 font-bold text-stone-800">
+              <div className="w-2 h-2 rounded-full bg-emerald-500" />
+              Arrive at {endTime.h}:{endTime.m.toString().padStart(2, '0')} {endTime.ampm}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-    
-    <div>
-        <span id="resTxt">5h 30m</span>
-    </div>
-    
-    <button id="calculate">Calculate Difference</button>
-</div>
+  );
+};
 
-<script>
-    const hourHand = document.getElementById('hourHand');
-    const minuteHand = document.getElementById('minuteHand');
-    const endHourHand = document.getElementById('endHourHand');
-    const endMinuteHand = document.getElementById('endMinuteHand');
-    const hourCircle = document.getElementById('hourCircle');
-    const minuteCircle = document.getElementById('minuteCircle');
-    const endHourCircle = document.getElementById('endHourCircle');
-    const endMinuteCircle = document.getElementById('endMinuteCircle');
-    const sH = document.getElementById('sH');
-    const sM = document.getElementById('sM');
-    const eH = document.getElementById('eH');
-    const eM = document.getElementById('eM');
-    const resTxt = document.getElementById('resTxt');
-
-    let startAm = true;  // Default to AM
-    let endAm = true;    // Default to AM
-    let dragging = null;
-
-    function updateClock() {
-        const startHour = parseInt(sH.value) || 12;
-        const startMinute = parseInt(sM.value) || 0;
-
-        const hourAngle = (startHour % 12) * 30 + (startMinute / 60) * 30;
-        const minuteAngle = startMinute * 6;
-
-        hourHand.setAttribute('transform', `rotate(${hourAngle}, 200, 200)`);
-        minuteHand.setAttribute('transform', `rotate(${minuteAngle}, 200, 200)`);
-        minuteCircle.setAttribute('transform', `rotate(${minuteAngle}, 200, 200)`);
-        hourCircle.setAttribute('transform', `rotate(${hourAngle}, 200, 200)`);
-    }
-
-    function updateEndClock() {
-        const endHour = parseInt(eH.value) || 12;
-        const endMinute = parseInt(eM.value) || 0;
-
-        const endHourAngle = (endHour % 12) * 30 + (endMinute / 60) * 30;
-        const endMinuteAngle = endMinute * 6;
-
-        endHourHand.setAttribute('transform', `rotate(${endHourAngle}, 200, 200)`);
-        endMinuteHand.setAttribute('transform', `rotate(${endMinuteAngle}, 200, 200)`);
-        endMinuteCircle.setAttribute('transform', `rotate(${endMinuteAngle}, 200, 200)`);
-        endHourCircle.setAttribute('transform', `rotate(${endHourAngle}, 200, 200)`);
-    }
-
-    function startDrag(event, hand) {
-        dragging = hand;
-        document.addEventListener('mousemove', moveHand);
-        document.addEventListener('mouseup', stopDrag);
-        document.addEventListener('touchmove', moveHand, { passive: false });
-        document.addEventListener('touchend', stopDrag);
-    }
-
-    function moveHand(event) {
-        const { clientX, clientY } = event.touches ? event.touches[0] : event;
-
-        const rect = clock.getBoundingClientRect();
-        const cx = rect.left + rect.width / 2;
-        const cy = rect.top + rect.height / 2;
-
-        const angle = Math.atan2(clientY - cy, clientX - cx) * (180 / Math.PI) + 90;
-
-        if (dragging === 'startHour') {
-            const hour = Math.round(angle / 30) % 12 || 12;
-            sH.value = hour;
-            if (sM.value >= 60) {
-                sM.value = 0; // Reset minutes after hour change
-            }
-        } else if (dragging === 'startMinute') {
-            const minute = Math.round(angle / 6) % 60;
-            sM.value = minute;
-            if (sM.value < 0) {
-                sM.value = 0; // Prevent negative minute values
-            }
-        } else if (dragging === 'endHour') {
-            const hour = Math.round(angle / 30) % 12 || 12;
-            eH.value = hour;
-            if (eM.value >= 60) {
-                eM.value = 0; // Reset minutes after hour change
-            }
-        } else if (dragging === 'endMinute') {
-            const minute = Math.round(angle / 6) % 60;
-            eM.value = minute;
-            if (eM.value < 0) {
-                eM.value = 0; // Prevent negative minute values
-            }
-        }
-
-        // Update both clocks
-        updateClock();
-        updateEndClock();
-    }
-
-    function stopDrag() {
-        dragging = null;
-        document.removeEventListener('mousemove', moveHand);
-        document.removeEventListener('mouseup', stopDrag);
-        document.removeEventListener('touchmove', moveHand);
-        document.removeEventListener('touchend', stopDrag);
-    }
-
-    function adjustStartTime(adjustment) {
-        const currentMinutes = parseInt(sM.value) || 0;
-        const currentHours = parseInt(sH.value) || 12;
-
-        let newMinutes = currentMinutes + adjustment;
-        let newHours = currentHours;
-
-        if (newMinutes >= 60) {
-            newMinutes = 0;
-            newHours = (currentHours % 12) + 1;
-        }
-        if (newMinutes < 0) {
-            newMinutes = 0; // Do not allow negative minutes
-        }
-
-        sM.value = newMinutes;
-        sH.value = newHours;
-        updateClock();
-    }
-
-    function adjustEndTime(adjustment) {
-        const currentMinutes = parseInt(eM.value) || 0;
-        const currentHours = parseInt(eH.value) || 12;
-
-        let newMinutes = currentMinutes + adjustment;
-        let newHours = currentHours;
-
-        if (newMinutes >= 60) {
-            newMinutes = 0;
-            newHours = (currentHours % 12) + 1;
-        }
-        if (newMinutes < 0) {
-            newMinutes = 0; // Do not allow negative minutes
-        }
-
-        eM.value = newMinutes;
-        eH.value = newHours;
-        updateEndClock();
-    }
-
-    hourCircle.addEventListener('mousedown', (e) => startDrag(e, 'startHour'));
-    minuteCircle.addEventListener('mousedown', (e) => startDrag(e, 'startMinute'));
-    endHourCircle.addEventListener('mousedown', (e) => startDrag(e, 'endHour'));
-    endMinuteCircle.addEventListener('mousedown', (e) => startDrag(e, 'endMinute'));
-    
-    hourCircle.addEventListener('touchstart', (e) => startDrag(e, 'startHour'), { passive: false });
-    minuteCircle.addEventListener('touchstart', (e) => startDrag(e, 'startMinute'), { passive: false });
-    endHourCircle.addEventListener('touchstart', (e) => startDrag(e, 'endHour'), { passive: false });
-    endMinuteCircle.addEventListener('touchstart', (e) => startDrag(e, 'endMinute'), { passive: false });
-
-    sH.addEventListener('input', () => {
-        updateClock();
-    });
-    sM.addEventListener('input', () => {
-        sM.value = Math.max(0, Math.min(sM.value, 59)); // Ensure no negative numbers or over 59
-        updateClock();
-    });
-    eH.addEventListener('input', () => {
-        updateEndClock();
-    });
-    eM.addEventListener('input', () => {
-        eM.value = Math.max(0, Math.min(eM.value, 59)); // Ensure no negative numbers or over 59
-        updateEndClock();
-    });
-
-    document.getElementById('sPlus').addEventListener('click', () => adjustStartTime(1));
-    document.getElementById('sMinus').addEventListener('click', () => adjustStartTime(-1));
-    document.getElementById('ePlus').addEventListener('click', () => adjustEndTime(1));
-    document.getElementById('eMinus').addEventListener('click', () => adjustEndTime(-1));
-
-    document.getElementById('sAm').addEventListener('click', () => { startAm = true; });
-    document.getElementById('sPm').addEventListener('click', () => { startAm = false; });
-    document.getElementById('eAm').addEventListener('click', () => { endAm = true; });
-    document.getElementById('ePm').addEventListener('click', () => { endAm = false; });
-
-    document.getElementById('tToggleStart').addEventListener('click', () => {
-        hourHand.style.display = (hourHand.style.display === 'none') ? 'block' : 'none';
-        minuteHand.style.display = (minuteHand.style.display === 'none') ? 'block' : 'none';
-    });
-
-    document.getElementById('tToggleEnd').addEventListener('click', () => {
-        endHourHand.style.display = (endHourHand.style.display === 'none') ? 'block' : 'none';
-        endMinuteHand.style.display = (endMinuteHand.style.display === 'none') ? 'block' : 'none';
-    });
-
-    document.getElementById('calculate').addEventListener('click', () => {
-        const startHour = parseInt(sH.value) + (startAm ? 0 : 12);
-        const startMinute = parseInt(sM.value);
-        const endHour = parseInt(eH.value) + (endAm ? 0 : 12);
-        const endMinute = parseInt(eM.value);
-
-        const startTotal = startHour * 60 + startMinute;
-        const endTotal = endHour * 60 + endMinute;
-        let diff = endTotal - startTotal;
-
-        if (diff < 0) diff += 24 * 60;  // Handle wraparound
-
-        const diffHours = Math.floor(diff / 60);
-        const diffMinutes = diff % 60;
-
-        resTxt.textContent = `${diffHours}h ${diffMinutes}m`;
-    });
-
-    updateClock(); // Initial update
-    updateEndClock(); // Reflect end time initially
-</script>
-
-</body>
-</html>
+export default TimeDifferenceCalculator;
