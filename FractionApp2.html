@@ -1,168 +1,202 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fraction App</title>
+    <title>通分母視覺化教學工具</title>
     <style>
-        body {
-            min-height: 100vh;
-            background: linear-gradient(to bottom right, #ebf8ff, #e9d8fd);
-            padding: 16px;
-            font-family: Arial, sans-serif;
+        :root {
+            --color-1: #3498db;      /* 分數 1: 藍色 */
+            --color-2: #e67e22;      /* 分數 2: 橘色 */
+            --success-color: #27ae60; /* 成功: 綠色 */
+            --bg-color: #f4f7f6;
         }
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            padding: 20px;
+
+        body { font-family: 'PingFang HK', 'Heiti TC', sans-serif; background-color: var(--bg-color); display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .container { background: white; padding: 2rem; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); max-width: 850px; width: 100%; }
+        
+        h2 { text-align: center; color: #2c3e50; margin-bottom: 10px; }
+
+        /* 控制列 */
+        .top-controls { text-align: center; margin-bottom: 20px; background: #eee; padding: 10px; border-radius: 10px; }
+        
+        /* 分數卡片 */
+        .fraction-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 20px; }
+        .fraction-card { border: 4px solid #eee; padding: 20px; border-radius: 15px; text-align: center; transition: all 0.3s ease; }
+        
+        #card-1 { border-color: var(--color-1); }
+        #card-2 { border-color: var(--color-2); }
+        .fraction-card.match { border-color: var(--success-color) !important; background-color: #f1fcf4; transform: translateY(-5px); }
+
+        /* 分數顯示格式 */
+        .fraction-input-group { display: inline-flex; flex-direction: column; align-items: center; margin-bottom: 15px; }
+        input[type="number"] { width: 65px; padding: 10px; font-size: 1.4rem; text-align: center; border: 2px solid #ccc; border-radius: 8px; font-weight: bold; outline: none; }
+        input[type="number"]:focus { border-color: #999; }
+        .fraction-line { width: 80px; height: 4px; background-color: #333; margin: 8px 0; border-radius: 2px; }
+
+        /* 按鈕樣式 */
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        button.math-btn { 
+            padding: 8px; cursor: pointer; background: white; border: 2px solid #ddd; 
+            border-radius: 6px; font-weight: bold; font-size: 0.9rem; transition: 0.2s;
         }
-        h1, h2 {
-            text-align: center;
-            color: #6b46c1;
+        #card-1 button.math-btn:hover { background: var(--color-1); color: white; border-color: var(--color-1); }
+        #card-2 button.math-btn:hover { background: var(--color-2); color: white; border-color: var(--color-2); }
+
+        /* 圖表區 */
+        .bar-wrapper { margin-top: 15px; }
+        .bar-label { font-weight: bold; margin-bottom: 8px; display: block; font-size: 1.1rem; }
+        .bar-container {
+            height: 50px; background: #e0e0e0; border-radius: 12px;
+            position: relative; overflow: hidden; border: 2px solid #bdc3c7;
         }
-        input[type="number"] {
-            width: 50px;
-            text-align: center;
-            font-size: 24px;
-            margin: 0 10px;
-            border: 2px solid #6b46c1;
-            border-radius: 8px;
-            padding: 5px;
-        }
-        button {
-            background-color: #6b46c1;
-            color: white;
-            padding: 8px 12px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        button:hover {
-            background-color: #5a36b0;
-        }
-        .fraction {
-            font-size: 40px;
-            text-align: center;
-            margin: 20px 0;
-        }
-        .history, .tips {
-            margin-top: 20px;
-            border: 1px solid #e2e8f0;
-            padding: 10px;
-            border-radius: 8px;
-            background-color: #f7fafc;
-        }
-        .tip-item {
-            margin: 5px 0;
-        }
+        .bar-fill { height: 100%; width: 0%; transition: width 0.4s ease, background-color 0.3s; position: absolute; z-index: 1; }
+        .grid-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 2; pointer-events: none; }
+
+        /* 訊息與動畫 */
+        #success-msg { text-align: center; color: var(--success-color); font-size: 1.8rem; font-weight: bold; height: 45px; visibility: hidden; margin-top: 10px; }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        .animate-bounce { animation: bounce 0.6s ease infinite; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>📐 通分母學習工具</h1>
-    <p>學習擴分和約分，掌握分數的基本操作</p>
-
-    <!-- Input Section -->
-    <h2>✏️ 輸入分數</h2>
-    <input type="number" id="inputNum" placeholder="分子" value="3">
-    <span>/</span>
-    <input type="number" id="inputDen" placeholder="分母" value="4">
-    <button onclick="setFraction()">設定</button>
-
-    <!-- Current Fraction Display -->
-    <div class="fraction" id="currentFraction">3/4</div>
-
-    <!-- Message Display -->
-    <div id="message" style="color: blue;"></div>
-
-    <!-- Expand Section -->
-    <h2>擴分（乘以相同的數）</h2>
-    <button onclick="expand(2)">×2</button>
-    <button onclick="expand(3)">×3</button>
-    <button onclick="expand(4)">×4</button>
-    <button onclick="expand(5)">×5</button>
-
-    <!-- Reduce Section -->
-    <h2>約分（除以相同的數）</h2>
-    <button onclick="reduce(2)">÷2</button>
-    <button onclick="reduce(3)">÷3</button>
-    <button onclick="reduce(4)">÷4</button>
-    <button onclick="reduce(5)">÷5</button>
-
-    <!-- History Section -->
-    <div class="history">
-        <h2>📝 操作記錄</h2>
-        <div id="history"></div>
+    <h2>通分母視覺化教學工具</h2>
+    
+    <div class="top-controls">
+        隨機數字上限: <input type="number" id="max-limit" value="15" style="width: 60px;">
+        <button onclick="generateRandomFractions()" style="padding: 8px 15px; background: #6c5ce7; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold; margin-left:10px;">隨機出題</button>
     </div>
 
-    <!-- Educational Tips -->
-    <div class="tips">
-        <h2>💡 學習小提示</h2>
-        <div class="tip-item">• 通分母：讓不同分數有相同的分母，方便比較和計算</div>
-        <div class="tip-item">• 擴分：分子分母同乘一個數，分數值不變</div>
-        <div class="tip-item">• 約分：分子分母同除一個公因數，簡化分數</div>
-        <div class="tip-item">• 最簡分數：分子分母的最大公因數為1</div>
+    <div id="success-msg">你答對了！分母相同了 🎉</div>
+
+    <div class="fraction-controls">
+        <!-- 分數 1 (藍色) -->
+        <div class="fraction-card" id="card-1">
+            <div class="fraction-input-group">
+                <input type="number" id="num1" value="1" oninput="updateUI()">
+                <div class="fraction-line"></div>
+                <input type="number" id="den1" value="3" oninput="updateUI()">
+            </div>
+            <div class="btn-group">
+                <button class="math-btn" onclick="modify(1, 'mul', 2)">×2</button>
+                <button class="math-btn" onclick="modify(1, 'mul', 3)">×3</button>
+                <button class="math-btn" onclick="modify(1, 'div', 2)">÷2</button>
+                <button class="math-btn" onclick="modify(1, 'div', 3)">÷3</button>
+            </div>
+        </div>
+
+        <!-- 分數 2 (橘色) -->
+        <div class="fraction-card" id="card-2">
+            <div class="fraction-input-group">
+                <input type="number" id="num2" value="1" oninput="updateUI()">
+                <div class="fraction-line"></div>
+                <input type="number" id="den2" value="4" oninput="updateUI()">
+            </div>
+            <div class="btn-group">
+                <button class="math-btn" onclick="modify(2, 'mul', 2)">×2</button>
+                <button class="math-btn" onclick="modify(2, 'mul', 3)">×3</button>
+                <button class="math-btn" onclick="modify(2, 'div', 2)">÷2</button>
+                <button class="math-btn" onclick="modify(2, 'div', 3)">÷3</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 長條圖區 -->
+    <div class="bar-wrapper">
+        <span class="bar-label" id="label1" style="color: var(--color-1);">分數 1: 1 / 3</span>
+        <div class="bar-container">
+            <div id="bar1" class="bar-fill" style="background-color: var(--color-1);"></div>
+            <div id="grid1" class="grid-overlay"></div>
+        </div>
+    </div>
+
+    <div class="bar-wrapper">
+        <span class="bar-label" id="label2" style="color: var(--color-2);">分數 2: 1 / 4</span>
+        <div class="bar-container">
+            <div id="bar2" class="bar-fill" style="background-color: var(--color-2);"></div>
+            <div id="grid2" class="grid-overlay"></div>
+        </div>
     </div>
 </div>
 
 <script>
-    let numerator = 3;
-    let denominator = 4;
-    const history = [];
+    function updateUI() {
+        const n1 = parseInt(document.getElementById('num1').value) || 0;
+        const d1 = parseInt(document.getElementById('den1').value) || 1;
+        const n2 = parseInt(document.getElementById('num2').value) || 0;
+        const d2 = parseInt(document.getElementById('den2').value) || 1;
 
-    function updateFractionDisplay() {
-        document.getElementById('currentFraction').innerText = `${numerator}/${denominator}`;
+        const isMatch = (d1 === d2 && d1 !== 0);
+
+        // 更新視覺與刻度
+        renderBar(1, n1, d1, isMatch ? 'var(--success-color)' : 'var(--color-1)');
+        renderBar(2, n2, d2, isMatch ? 'var(--success-color)' : 'var(--color-2)');
+
+        // 成功狀態處理
+        const msg = document.getElementById('success-msg');
+        msg.style.visibility = isMatch ? 'visible' : 'hidden';
+        if(isMatch) msg.classList.add('animate-bounce'); else msg.classList.remove('animate-bounce');
+
+        document.getElementById('card-1').className = isMatch ? 'fraction-card match' : 'fraction-card';
+        document.getElementById('card-2').className = isMatch ? 'fraction-card match' : 'fraction-card';
+        
+        document.getElementById('label1').style.color = isMatch ? 'var(--success-color)' : 'var(--color-1)';
+        document.getElementById('label2').style.color = isMatch ? 'var(--success-color)' : 'var(--color-2)';
     }
 
-    function setFraction() {
-        const inputNum = parseInt(document.getElementById('inputNum').value);
-        const inputDen = parseInt(document.getElementById('inputDen').value);
-        if (isNaN(inputNum) || isNaN(inputDen) || inputDen === 0) {
-            document.getElementById('message').innerText = '請輸入有效的分數（分母不能為0）';
-            return;
+    function renderBar(id, num, den, color) {
+        const percentage = Math.min((num / den) * 100, 100);
+        const bar = document.getElementById(`bar${id}`);
+        const grid = document.getElementById(`grid${id}`);
+        const label = document.getElementById(`label${id}`);
+
+        bar.style.width = percentage + '%';
+        bar.style.backgroundColor = color;
+        label.innerText = `分數 ${id}: ${num} / ${den}`;
+
+        // 動態生成分界線: 每 1/den 畫一條線
+        const step = 100 / den;
+        grid.style.background = `repeating-linear-gradient(90deg, transparent, transparent calc(${step}% - 2px), rgba(0,0,0,0.25) calc(${step}% - 2px), rgba(0,0,0,0.25) ${step}%)`;
+    }
+
+    function modify(target, op, val) {
+        const nEl = document.getElementById(`num${target}`);
+        const dEl = document.getElementById(`den${target}`);
+        let n = parseInt(nEl.value);
+        let d = parseInt(dEl.value);
+
+        if (op === 'mul') {
+            n *= val; d *= val;
+        } else if (op === 'div') {
+            if (n % val === 0 && d % val === 0) {
+                n /= val; d /= val;
+            } else {
+                alert(`分子或分母無法被 ${val} 整除，請嘗試擴分後再約分！`);
+                return;
+            }
         }
-        numerator = inputNum;
-        denominator = inputDen;
-        history.push({ num: numerator, den: denominator, action: '輸入新分數' });
-        updateHistory();
-        updateFractionDisplay();
-        document.getElementById('message').innerText = '';
+        nEl.value = n; dEl.value = d;
+        updateUI();
     }
 
-    function expand(factor) {
-        numerator *= factor;
-        denominator *= factor;
-        history.push({ num: numerator, den: denominator, action: `×${factor} 擴分` });
-        updateHistory();
-        updateFractionDisplay();
-        document.getElementById('message').innerText = `分子和分母都乘以 ${factor}`;
+    function generateRandomFractions() {
+        const limit = parseInt(document.getElementById('max-limit').value) || 15;
+        const d1 = Math.floor(Math.random() * (limit - 1)) + 2;
+        const n1 = Math.floor(Math.random() * (d1 - 1)) + 1;
+        const d2 = Math.floor(Math.random() * (limit - 1)) + 2;
+        const n2 = Math.floor(Math.random() * (d2 - 1)) + 1;
+
+        document.getElementById('num1').value = n1;
+        document.getElementById('den1').value = d1;
+        document.getElementById('num2').value = n2;
+        document.getElementById('den2').value = d2;
+        updateUI();
     }
 
-    function reduce(factor) {
-        if (numerator % factor !== 0 || denominator % factor !== 0) {
-            document.getElementById('message').innerText = `無法除以 ${factor}，分子或分母不能整除`;
-            return;
-        }
-        numerator /= factor;
-        denominator /= factor;
-        history.push({ num: numerator, den: denominator, action: `÷${factor} 約分` });
-        updateHistory();
-        updateFractionDisplay();
-        document.getElementById('message').innerText = `分子和分母都除以 ${factor}`;
-    }
-
-    function updateHistory() {
-        const historyDiv = document.getElementById('history');
-        historyDiv.innerHTML = ''; // Clear previous history
-        history.forEach(item => {
-            historyDiv.innerHTML += `<div>${item.num}/${item.den} → ${item.action}</div>`;
-        });
-    }
+    // 初始化頁面
+    updateUI();
 </script>
 
 </body>
