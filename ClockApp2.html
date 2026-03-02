@@ -1,356 +1,207 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Time Difference Calculator</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <title>互動時間教學工具 Pro</title>
+    <link href="https://fonts.googleapis.com" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Outfit', sans-serif;
-            background: #F4F1EC;
-            color: #1B1B1F;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 24px 16px;
-        }
-        .header { text-align: center; margin-bottom: 24px; }
-        .app { max-width: 440px; display: flex; flex-direction: column; align-items: center; gap: 18px; }
-        .clock-wrap { width: 200px; height: 200px; }
-        input, button { font-family: 'DM Mono', monospace; font-size: 1rem; }
-        .adjust { display: flex; gap: 10px; flex-direction: column; }
-        .label { display: flex; justify-content: space-between; width: 100%; }
-        .circle { cursor: pointer; }
+        :root { --primary: #1B1B1F; --start: #ff4757; --end: #2ed573; --bg: #F4F1EC; --accent: #3498db; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); display: flex; flex-direction: column; align-items: center; padding: 10px; margin: 0; }
+        .app { max-width: 480px; width: 100%; background: white; padding: 25px; border-radius: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); box-sizing: border-box; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .clock-wrap { width: 300px; height: 300px; margin: 0 auto 20px; position: relative; }
+        .clock-num { font-size: 26px; font-weight: 700; fill: #333; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+        .circle { cursor: grab; transition: r 0.2s; }
+        .circle:active { cursor: grabbing; r: 18; }
 
-        /* Button styles */
-        .time-button {
-            border: none;
-            padding: 10px 15px;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background-color 0.3s, color 0.3s;
-        }
-        .time-button.am {
-            background-color: #d5f4e6; /* Light green */
-            color: #1b1b1f;
-        }
-        .time-button.pm {
-            background-color: #f4d5d5; /* Light red */
-            color: #1b1b1f;
-        }
-        .time-button.active.am {
-            background-color: #2ecc71; /* Darker green */
-            color: #fff;
-        }
-        .time-button.active.pm {
-            background-color: #e74c3c; /* Darker red */
-            color: #fff;
-        }
-        .toggle-button {
-            background-color: #f1c40f; /* Yellow */
-        }
-        .toggle-button.active {
-            background-color: #f39c12; /* Darker yellow */
-            color: #fff;
-        }
+        .controls { display: flex; flex-direction: column; gap: 12px; }
+        .time-row { display: flex; align-items: center; justify-content: space-between; background: #f8f9fa; padding: 10px 15px; border-radius: 16px; border: 2px solid #eee; }
+        .label-text { font-weight: 800; font-size: 1rem; min-width: 65px; }
+
+        .val-group { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+        .step-btn { background: #e0e0e0; border: none; width: 32px; height: 26px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        input { width: 48px; text-align: center; border: 1px solid #ccc; border-radius: 8px; padding: 4px; font-family: 'DM Mono'; font-size: 1.2rem; background: white; }
+
+        .btn-toggle { background: #eee; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9rem; }
+        .btn-toggle.active { background: var(--primary); color: white; }
+        .eye-btn { background: white; border: 1px solid #ddd; font-size: 1.2rem; border-radius: 10px; width: 42px; height: 42px; cursor: pointer; }
+        .eye-btn.hidden { opacity: 0.3; background: #f0f0f0; }
+
+        .result-area { margin-top: 25px; text-align: center; border-top: 2px dashed #ddd; padding-top: 15px; }
+        .result-label { font-size: 0.85rem; font-weight: 700; color: #666; text-transform: uppercase; }
+        #resTxt { font-size: 2.2rem; font-weight: 800; margin: 5px 0; }
+        
+        .quiz-box { background: #e3f2fd; border-radius: 12px; padding: 12px; margin-top: 10px; display: none; }
+        #quizMsg { color: #1976d2; font-weight: 700; margin-bottom: 8px; }
+        .btn-quiz { background: var(--accent); color: white; padding: 10px 20px; border-radius: 10px; border: none; cursor: pointer; font-weight: bold; }
+        .btn-check { background: #f39c12; color: white; padding: 8px 15px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div class="header">
-    <h1>Time Difference Calculator</h1>
-    <p>Drag the hands or type below</p>
-</div>
-
 <div class="app">
+    <div class="header">
+        <h2 style="margin:0; font-size: 1.4rem;">Time Tool</h2>
+        <button id="modeToggle" class="btn-toggle">Mode: AM/PM</button>
+    </div>
+    
     <div class="clock-wrap">
-        <svg id="clock" viewBox="0 0 400 400" style="width: 100%; height: 100%;">
-            <circle cx="200" cy="200" r="180" fill="#FFFDF9" stroke="#1B1B1F" stroke-width="10" />
-            <line id="hourHand" x1="200" y1="200" x2="200" y2="100" stroke="red" stroke-width="8" />
-            <line id="minuteHand" x1="200" y1="200" x2="200" y2="50" stroke="red" stroke-width="4" />
-            <line id="endHourHand" x1="200" y1="200" x2="200" y2="100" stroke="green" stroke-width="8" />
-            <line id="endMinuteHand" x1="200" y1="200" x2="200" y2="50" stroke="green" stroke-width="4" />
-            <circle class="circle" id="hourCircle" cx="200" cy="100" r="10" fill="red" />
-            <circle class="circle" id="minuteCircle" cx="200" cy="50" r="5" fill="red" />
-            <circle class="circle" id="endHourCircle" cx="200" cy="100" r="10" fill="green" />
-            <circle class="circle" id="endMinuteCircle" cx="200" cy="50" r="5" fill="green" />
-            <circle cx="200" cy="200" r="10" fill="#1B1B1F" />
+        <svg id="clock" viewBox="0 0 400 400">
+            <circle cx="200" cy="200" r="185" fill="#fff" stroke="#1B1B1F" stroke-width="8" />
+            <g id="numbers"></g>
+            <g id="groupS">
+                <line id="hourHandS" x1="200" y1="200" x2="200" y2="110" stroke="var(--start)" stroke-width="10" stroke-linecap="round" />
+                <line id="minHandS" x1="200" y1="200" x2="200" y2="60" stroke="var(--start)" stroke-width="6" stroke-linecap="round" />
+                <circle class="circle" id="hS" cx="200" cy="110" r="15" fill="var(--start)" />
+                <circle class="circle" id="mS" cx="200" cy="60" r="11" fill="var(--start)" />
+            </g>
+            <g id="groupE">
+                <line id="hourHandE" x1="200" y1="200" x2="200" y2="110" stroke="var(--end)" stroke-width="10" stroke-linecap="round" opacity="0.8" />
+                <line id="minHandE" x1="200" y1="200" x2="200" y2="60" stroke="var(--end)" stroke-width="6" stroke-linecap="round" opacity="0.8" />
+                <circle class="circle" id="hE" cx="200" cy="110" r="15" fill="var(--end)" />
+                <circle class="circle" id="mE" cx="200" cy="60" r="11" fill="var(--end)" />
+            </g>
+            <circle cx="200" cy="200" r="8" fill="#1B1B1F" />
         </svg>
     </div>
 
-    <div class="adjust">
-        <div>
-            <label class="label">
-                <span style="color: red;">Start Time:</span>
-                <span>
-                    <button id="sAm" class="time-button am active">AM</button>
-                    <button id="sPm" class="time-button pm">PM</button>
-                </span>
-            </label>
-            <input type="number" id="sH" min="1" max="12" value="9"> :
-            <input type="number" id="sM" min="0" max="59" value="15">
-            <button id="sPlus">+</button>
-            <button id="sMinus">-</button>
-            <button id="tToggleStart" class="toggle-button">Toggle Start Time</button>
+    <div class="controls">
+        <div class="time-row" style="border-left: 6px solid var(--start);">
+            <div class="label-text" style="color: var(--start);">Time 1</div>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+                <button id="sAm" class="btn-toggle active" style="padding: 2px 8px; font-size: 0.7rem;">AM</button>
+                <button id="sPm" class="btn-toggle" style="padding: 2px 8px; font-size: 0.7rem;">PM</button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 5px;">
+                <div class="val-group"><button class="step-btn" onclick="stepTime('s', 60)">▲</button><input type="text" id="sH" readonly><button class="step-btn" onclick="stepTime('s', -60)">▼</button></div>
+                <span style="font-weight:bold">:</span>
+                <div class="val-group"><button class="step-btn" onclick="stepTime('s', 1)">▲</button><input type="text" id="sM" readonly><button class="step-btn" onclick="stepTime('s', -1)">▼</button></div>
+            </div>
+            <button class="eye-btn" id="toggleVisS">👁️</button>
         </div>
-        <div>
-            <label class="label">
-                <span style="color: green;">End Time:</span>
-                <span>
-                    <button id="eAm" class="time-button am active">AM</button>
-                    <button id="ePm" class="time-button pm">PM</button>
-                </span>
-            </label>
-            <input type="number" id="eH" min="1" max="12" value="2"> :
-            <input type="number" id="eM" min="0" max="59" value="45">
-            <button id="ePlus">+</button>
-            <button id="eMinus">-</button>
-            <button id="tToggleEnd" class="toggle-button">Toggle End Time</button>
+
+        <div class="time-row" style="border-left: 6px solid var(--end);">
+            <div class="label-text" style="color: var(--end);">Time 2</div>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+                <button id="eAm" class="btn-toggle active" style="padding: 2px 8px; font-size: 0.7rem;">AM</button>
+                <button id="ePm" class="btn-toggle" style="padding: 2px 8px; font-size: 0.7rem;">PM</button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 5px;">
+                <div class="val-group"><button class="step-btn" onclick="stepTime('e', 60)">▲</button><input type="text" id="eH" readonly><button class="step-btn" onclick="stepTime('e', -60)">▼</button></div>
+                <span style="font-weight:bold">:</span>
+                <div class="val-group"><button class="step-btn" onclick="stepTime('e', 1)">▲</button><input type="text" id="eM" readonly><button class="step-btn" onclick="stepTime('e', -1)">▼</button></div>
+            </div>
+            <button class="eye-btn" id="toggleVisE">👁️</button>
         </div>
     </div>
-    
-    <div>
-        <span id="resTxt">5h 30m</span>
+
+    <div class="result-area">
+        <div class="result-label">Time Difference</div>
+        <div id="resTxt">0h 0m</div>
+        
+        <button id="quizBtn" class="btn-quiz">🎲 隨機挑戰</button>
+        
+        <div id="quizBox" class="quiz-box">
+            <div id="quizMsg"></div>
+            <button id="checkBtn" class="btn-check">✔️ 檢查答案</button>
+        </div>
     </div>
-    
-    <button id="calculate">Calculate Difference</button>
 </div>
 
 <script>
-    const hourHand = document.getElementById('hourHand');
-    const minuteHand = document.getElementById('minuteHand');
-    const endHourHand = document.getElementById('endHourHand');
-    const endMinuteHand = document.getElementById('endMinuteHand');
-    const hourCircle = document.getElementById('hourCircle');
-    const minuteCircle = document.getElementById('minuteCircle');
-    const endHourCircle = document.getElementById('endHourCircle');
-    const endMinuteCircle = document.getElementById('endMinuteCircle');
-    const sH = document.getElementById('sH');
-    const sM = document.getElementById('sM');
-    const eH = document.getElementById('eH');
-    const eM = document.getElementById('eM');
-    const resTxt = document.getElementById('resTxt');
+    let startTime = 540, endTime = 885, is24H = false, dragging = null, lastAngle = 0;
+    let visS = true, visE = true, quizTargetDiff = 0;
 
-    let startAm = true;  // Default to AM
-    let endAm = true;    // Default to AM
-    let dragging = null;
-
-    function updateClock() {
-        const startHour = parseInt(sH.value) || 12;
-        const startMinute = parseInt(sM.value) || 0;
-
-        const hourAngle = (startHour % 12) * 30 + (startMinute / 60) * 30;
-        const minuteAngle = startMinute * 6;
-
-        hourHand.setAttribute('transform', `rotate(${hourAngle}, 200, 200)`);
-        minuteHand.setAttribute('transform', `rotate(${minuteAngle}, 200, 200)`);
-        minuteCircle.setAttribute('transform', `rotate(${minuteAngle}, 200, 200)`);
-        hourCircle.setAttribute('transform', `rotate(${hourAngle}, 200, 200)`);
+    // 繪製數字
+    const numG = document.getElementById('numbers');
+    for(let i=1; i<=12; i++) {
+        const a = (i * 30) * Math.PI / 180;
+        numG.innerHTML += `<text x="${200 + 150 * Math.sin(a)}" y="${200 - 150 * Math.cos(a)}" class="clock-num">${i}</text>`;
     }
 
-    function updateEndClock() {
-        const endHour = parseInt(eH.value) || 12;
-        const endMinute = parseInt(eM.value) || 0;
+    // 基本控制
+    document.getElementById('modeToggle').onclick = (e) => { is24H = !is24H; e.target.innerText = `Mode: ${is24H ? '24H' : 'AM/PM'}`; updateUI(); };
+    document.getElementById('toggleVisS').onclick = (e) => { visS = !visS; e.currentTarget.classList.toggle('hidden', !visS); updateUI(); };
+    document.getElementById('toggleVisE').onclick = (e) => { visE = !visE; e.currentTarget.classList.toggle('hidden', !visE); updateUI(); };
 
-        const endHourAngle = (endHour % 12) * 30 + (endMinute / 60) * 30;
-        const endMinuteAngle = endMinute * 6;
+    const setMode = (type, pm) => {
+        let t = type === 's' ? startTime : endTime, h = Math.floor(t / 60), m = t % 60;
+        h = pm ? (h < 12 ? h + 12 : h) : (h >= 12 ? h - 12 : h);
+        if (type === 's') startTime = h * 60 + m; else endTime = h * 60 + m;
+        updateUI();
+    };
 
-        endHourHand.setAttribute('transform', `rotate(${endHourAngle}, 200, 200)`);
-        endMinuteHand.setAttribute('transform', `rotate(${endMinuteAngle}, 200, 200)`);
-        endMinuteCircle.setAttribute('transform', `rotate(${endMinuteAngle}, 200, 200)`);
-        endHourCircle.setAttribute('transform', `rotate(${endHourAngle}, 200, 200)`);
+    document.getElementById('sAm').onclick = () => setMode('s', false); document.getElementById('sPm').onclick = () => setMode('s', true);
+    document.getElementById('eAm').onclick = () => setMode('e', false); document.getElementById('ePm').onclick = () => setMode('e', true);
+    function stepTime(t, d) { if(t === 's') startTime = (startTime + d + 1440) % 1440; else endTime = (endTime + d + 1440) % 1440; updateUI(); }
+
+    // 拖拽
+    const clock = document.getElementById('clock');
+    ['hS', 'mS', 'hE', 'mE'].forEach(id => {
+        const el = document.getElementById(id);
+        el.addEventListener('mousedown', (e) => startDrag(e, id));
+        el.addEventListener('touchstart', (e) => startDrag(e.touches[0], id), {passive: false});
+    });
+
+    function startDrag(e, id) { dragging = id; lastAngle = getAngle(e); document.addEventListener('mousemove', onMove); document.addEventListener('touchmove', onTouchMove, {passive: false}); document.addEventListener('mouseup', stopDrag); document.addEventListener('touchend', stopDrag); }
+    function onTouchMove(e) { e.preventDefault(); onMove(e.touches[0]); }
+    function onMove(e) {
+        if (!dragging) return;
+        const curA = getAngle(e); let diff = curA - lastAngle;
+        if (diff > 180) diff -= 360; if (diff < -180) diff += 360;
+        const mins = Math.round(diff * (dragging.startsWith('m') ? 60/360 : 720/360));
+        if (dragging.endsWith('S')) startTime = (startTime + mins + 1440) % 1440; else endTime = (endTime + mins + 1440) % 1440;
+        lastAngle = curA; updateUI();
     }
+    function getAngle(e) { const r = clock.getBoundingClientRect(); const x = e.clientX - (r.left + r.width/2), y = e.clientY - (r.top + r.height/2); let a = Math.atan2(y, x) * 180 / Math.PI + 90; return a < 0 ? a + 360 : a; }
+    function stopDrag() { dragging = null; document.removeEventListener('mousemove', onMove); document.removeEventListener('touchmove', onTouchMove); }
 
-    function startDrag(event, hand) {
-        dragging = hand;
-        document.addEventListener('mousemove', moveHand);
-        document.addEventListener('mouseup', stopDrag);
-        document.addEventListener('touchmove', moveHand, { passive: false });
-        document.addEventListener('touchend', stopDrag);
-    }
+    // 隨機挑戰邏輯
+    document.getElementById('quizBtn').onclick = () => {
+        startTime = Math.floor(Math.random() * 1440);
+        quizTargetDiff = (Math.floor(Math.random() * 11) + 1) * 60 + (Math.floor(Math.random() * 12) * 5); // 1-12小時，5分進位
+        visE = false;
+        document.getElementById('toggleVisE').classList.add('hidden');
+        document.getElementById('quizBox').style.display = 'block';
+        document.getElementById('quizMsg').innerText = `請設定 Time 2 為 Time 1 之後的 ${Math.floor(quizTargetDiff/60)}h ${quizTargetDiff%60}m`;
+        updateUI();
+    };
 
-    function moveHand(event) {
-        const { clientX, clientY } = event.touches ? event.touches[0] : event;
-
-        const rect = clock.getBoundingClientRect();
-        const cx = rect.left + rect.width / 2;
-        const cy = rect.top + rect.height / 2;
-
-        const angle = Math.atan2(clientY - cy, clientX - cx) * (180 / Math.PI) + 90;
-
-        if (dragging === 'startHour') {
-            const hour = Math.round(angle / 30) % 12 || 12;
-            sH.value = hour;
-            if (sM.value >= 60) {
-                sM.value = 0; // Reset minutes after hour change
-            }
-        } else if (dragging === 'startMinute') {
-            const minute = Math.round(angle / 6) % 60;
-            sM.value = minute;
-            if (sM.value < 0) {
-                sM.value = 0; // Prevent negative minute values
-            }
-        } else if (dragging === 'endHour') {
-            const hour = Math.round(angle / 30) % 12 || 12;
-            eH.value = hour;
-            if (eM.value >= 60) {
-                eM.value = 0; // Reset minutes after hour change
-            }
-        } else if (dragging === 'endMinute') {
-            const minute = Math.round(angle / 6) % 60;
-            eM.value = minute;
-            if (eM.value < 0) {
-                eM.value = 0; // Prevent negative minute values
-            }
-        }
-
-        // Update both clocks
-        updateClock();
-        updateEndClock();
-    }
-
-    function stopDrag() {
-        dragging = null;
-        document.removeEventListener('mousemove', moveHand);
-        document.removeEventListener('mouseup', stopDrag);
-        document.removeEventListener('touchmove', moveHand);
-        document.removeEventListener('touchend', stopDrag);
-    }
-
-    function adjustStartTime(adjustment) {
-        const currentMinutes = parseInt(sM.value) || 0;
-        const currentHours = parseInt(sH.value) || 12;
-
-        let newMinutes = currentMinutes + adjustment;
-        let newHours = currentHours;
-
-        if (newMinutes >= 60) {
-            newMinutes = 0;
-            newHours = (currentHours % 12) + 1;
-        }
-        if (newMinutes < 0) {
-            newMinutes = 0; // Do not allow negative minutes
-        }
-
-        sM.value = newMinutes;
-        sH.value = newHours;
-        updateClock();
-    }
-
-    function adjustEndTime(adjustment) {
-        const currentMinutes = parseInt(eM.value) || 0;
-        const currentHours = parseInt(eH.value) || 12;
-
-        let newMinutes = currentMinutes + adjustment;
-        let newHours = currentHours;
-
-        if (newMinutes >= 60) {
-            newMinutes = 0;
-            newHours = (currentHours % 12) + 1;
-        }
-        if (newMinutes < 0) {
-            newMinutes = 0; // Do not allow negative minutes
-        }
-
-        eM.value = newMinutes;
-        eH.value = newHours;
-        updateEndClock();
-    }
-
-    function toggleButton(button, state) {
-        if (state) {
-            button.classList.add('active');
+    document.getElementById('checkBtn').onclick = () => {
+        let curDiff = (endTime - startTime + 1440) % 1440;
+        if (curDiff === quizTargetDiff) {
+            alert("🎉 正確！做得好！");
+            visE = true; document.getElementById('toggleVisE').classList.remove('hidden');
+            document.getElementById('quizBox').style.display = 'none';
         } else {
-            button.classList.remove('active');
+            alert(`❌ 不對喔，目前的差距是 ${Math.floor(curDiff/60)}h ${curDiff%60}m，再試試看！`);
         }
+        updateUI();
+    };
+
+    function updateUI() {
+        const gS = document.getElementById('groupS'), gE = document.getElementById('groupE');
+        gS.style.opacity = visS ? "1" : "0"; gS.style.pointerEvents = visS ? "auto" : "none";
+        gE.style.opacity = visE ? "1" : "0"; gE.style.pointerEvents = visE ? "auto" : "none";
+
+        const draw = (t, hH, mH, hC, mC, hI, mI, amB, pmB) => {
+            const h = Math.floor(t / 60), m = t % 60;
+            const hA = (h % 12) * 30 + (m / 60) * 30, mA = m * 6;
+            [hH, hC].forEach(el => el.setAttribute('transform', `rotate(${hA}, 200, 200)`));
+            [mH, mC].forEach(el => el.setAttribute('transform', `rotate(${mA}, 200, 200)`));
+            amB.parentElement.style.display = is24H ? 'none' : 'flex';
+            hI.value = is24H ? h.toString().padStart(2, '0') : (h % 12 || 12);
+            mI.value = m.toString().padStart(2, '0');
+            if(!is24H) { amB.classList.toggle('active', h < 12); pmB.classList.toggle('active', h >= 12); }
+        };
+        draw(startTime, hourHandS, minHandS, hS, mS, sH, sM, sAm, sPm);
+        draw(endTime, hourHandE, minHandE, hE, mE, eH, eM, eAm, ePm);
+        let d = (endTime - startTime + 1440) % 1440;
+        document.getElementById('resTxt').innerText = `${Math.floor(d/60)}h ${d%60}m`;
     }
-
-    hourCircle.addEventListener('mousedown', (e) => startDrag(e, 'startHour'));
-    minuteCircle.addEventListener('mousedown', (e) => startDrag(e, 'startMinute'));
-    endHourCircle.addEventListener('mousedown', (e) => startDrag(e, 'endHour'));
-    endMinuteCircle.addEventListener('mousedown', (e) => startDrag(e, 'endMinute'));
-    
-    hourCircle.addEventListener('touchstart', (e) => startDrag(e, 'startHour'), { passive: false });
-    minuteCircle.addEventListener('touchstart', (e) => startDrag(e, 'startMinute'), { passive: false });
-    endHourCircle.addEventListener('touchstart', (e) => startDrag(e, 'endHour'), { passive: false });
-    endMinuteCircle.addEventListener('touchstart', (e) => startDrag(e, 'endMinute'), { passive: false });
-
-    sH.addEventListener('input', () => {
-        updateClock();
-    });
-    sM.addEventListener('input', () => {
-        sM.value = Math.max(0, Math.min(sM.value, 59)); // Ensure no negative numbers or over 59
-        updateClock();
-    });
-    eH.addEventListener('input', () => {
-        updateEndClock();
-    });
-    eM.addEventListener('input', () => {
-        eM.value = Math.max(0, Math.min(eM.value, 59)); // Ensure no negative numbers or over 59
-        updateEndClock();
-    });
-
-    document.getElementById('sPlus').addEventListener('click', () => adjustStartTime(1));
-    document.getElementById('sMinus').addEventListener('click', () => adjustStartTime(-1));
-    document.getElementById('ePlus').addEventListener('click', () => adjustEndTime(1));
-    document.getElementById('eMinus').addEventListener('click', () => adjustEndTime(-1));
-
-    document.getElementById('sAm').addEventListener('click', () => {
-        startAm = true;
-        toggleButton(document.getElementById('sAm'), true);
-        toggleButton(document.getElementById('sPm'), false);
-    });
-    
-    document.getElementById('sPm').addEventListener('click', () => {
-        startAm = false;
-        toggleButton(document.getElementById('sPm'), true);
-        toggleButton(document.getElementById('sAm'), false);
-    });
-
-    document.getElementById('eAm').addEventListener('click', () => {
-        endAm = true;
-        toggleButton(document.getElementById('eAm'), true);
-        toggleButton(document.getElementById('ePm'), false);
-    });
-    
-    document.getElementById('ePm').addEventListener('click', () => {
-        endAm = false;
-        toggleButton(document.getElementById('ePm'), true);
-        toggleButton(document.getElementById('eAm'), false);
-    });
-
-    document.getElementById('tToggleStart').addEventListener('click', () => {
-        const button = document.getElementById('tToggleStart');
-        button.classList.toggle('active');
-    });
-
-    document.getElementById('tToggleEnd').addEventListener('click', () => {
-        const button = document.getElementById('tToggleEnd');
-        button.classList.toggle('active');
-    });
-
-    document.getElementById('calculate').addEventListener('click', () => {
-        const startHour = parseInt(sH.value) + (startAm ? 0 : 12);
-        const startMinute = parseInt(sM.value);
-        const endHour = parseInt(eH.value) + (endAm ? 0 : 12);
-        const endMinute = parseInt(eM.value);
-
-        const startTotal = startHour * 60 + startMinute;
-        const endTotal = endHour * 60 + endMinute;
-        let diff = endTotal - startTotal;
-
-        if (diff < 0) diff += 24 * 60;  // Handle wraparound
-
-        const diffHours = Math.floor(diff / 60);
-        const diffMinutes = diff % 60;
-
-        resTxt.textContent = `${diffHours}h ${diffMinutes}m`;
-    });
-
-    updateClock(); // Initial update
-    updateEndClock(); // Reflect end time initially
+    updateUI();
 </script>
-
 </body>
 </html>
